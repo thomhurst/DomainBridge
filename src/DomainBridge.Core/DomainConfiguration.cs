@@ -43,6 +43,11 @@ namespace DomainBridge
         public string? TargetAssembly { get; set; }
 
         /// <summary>
+        /// Gets or sets additional assembly search paths (semicolon-separated).
+        /// </summary>
+        public string? AssemblySearchPaths { get; set; }
+
+        /// <summary>
         /// Gets the default configuration.
         /// </summary>
         public static DomainConfiguration Default => new DomainConfiguration();

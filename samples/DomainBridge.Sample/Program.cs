@@ -62,7 +62,9 @@ namespace DomainBridge.Sample
     }
     
     // Define a bridge class for the third-party application
-    [DomainBridge(typeof(ThirdPartyApplication))]
+    [DomainBridge(typeof(ThirdPartyApplication), 
+        PrivateBinPath = "ThirdPartyLibs",
+        EnableShadowCopy = true)]
     public partial class ThirdPartyApplicationBridge
     {
         // The source generator will generate:
@@ -71,6 +73,7 @@ namespace DomainBridge.Sample
         // - All methods: Connect(), Disconnect(), GetDatabase()
         // - Automatic proxying for returned types (Database → DatabaseBridge)
         // - Static CreateIsolated() and UnloadDomain() methods
+        // - AppDomain configuration using the specified PrivateBinPath and shadow copying
     }
     
     // Simulated third-party types (would normally be in external assembly)

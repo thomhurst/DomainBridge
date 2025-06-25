@@ -19,6 +19,31 @@ namespace DomainBridge
         public bool IncludeNestedTypes { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets the private bin path for assembly resolution in the isolated AppDomain.
+        /// </summary>
+        public string? PrivateBinPath { get; set; }
+
+        /// <summary>
+        /// Gets or sets the application base directory for the isolated AppDomain.
+        /// </summary>
+        public string? ApplicationBase { get; set; }
+
+        /// <summary>
+        /// Gets or sets the configuration file path for the isolated AppDomain.
+        /// </summary>
+        public string? ConfigurationFile { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether to enable shadow copying of assemblies.
+        /// </summary>
+        public bool EnableShadowCopy { get; set; }
+
+        /// <summary>
+        /// Gets or sets additional assembly search paths (semicolon-separated).
+        /// </summary>
+        public string? AssemblySearchPaths { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the DomainBridgeAttribute class with a target type.
         /// </summary>
         /// <param name="targetType">The type to create a bridge for.</param>

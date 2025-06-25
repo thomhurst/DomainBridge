@@ -13,7 +13,7 @@ namespace DomainBridge.SourceGenerators.Services
             _typeNameResolver = typeNameResolver;
         }
 
-        public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel)
+        public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Generate the partial class implementation
             builder.OpenBlock($"public partial class {bridgeClassName} : MarshalByRefObject");
@@ -21,7 +21,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateFields(builder);
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
             GenerateConstructors(builder, bridgeClassName);
-            GenerateFactoryMethods(builder, bridgeClassName, targetModel);
+            GenerateFactoryMethods(builder, bridgeClassName, targetModel, config);
             GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
             GenerateDisposalMethod(builder, targetModel);
@@ -81,7 +81,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine();
         }
 
-        private void GenerateFactoryMethods(CodeBuilder builder, string className, TypeModel targetModel)
+        private void GenerateFactoryMethods(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
         {
             // CreateIsolated method
             builder.OpenBlock($"public static {className} CreateIsolated(DomainConfiguration? config = null)");
@@ -92,26 +92,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine();
 
             // EnsureIsolatedDomain method
-            builder.OpenBlock("private static void EnsureIsolatedDomain(DomainConfiguration? config = null)");
-            builder.OpenBlock("if (_isolatedDomain == null)");
-            builder.OpenBlock("lock (_lock)");
-            builder.OpenBlock("if (_isolatedDomain == null)");
-            builder.AppendLine("config = config ?? new DomainConfiguration();");
-            builder.AppendLine($"config.TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName;");
-            builder.AppendLine();
-            builder.AppendLine("var setup = new AppDomainSetup");
-            builder.AppendLine("{");
-            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory,");
-            builder.AppendLine("    PrivateBinPath = config.PrivateBinPath,");
-            builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
-            builder.AppendLine("};");
-            builder.AppendLine();
-            builder.AppendLine($"_isolatedDomain = AppDomain.CreateDomain(\"{className}_IsolatedDomain\", null, setup);");
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.AppendLine();
+            GenerateEnsureIsolatedDomainMethod(builder, className, targetModel, config);
 
             // GetOrCreateRemoteInstance method
             builder.OpenBlock("private static dynamic GetOrCreateRemoteInstance()");
@@ -289,6 +270,92 @@ namespace DomainBridge.SourceGenerators.Services
             if (value is string str) return $"\"{str}\"";
             if (value is bool b) return b ? "true" : "false";
             return value.ToString() ?? "null";
+        }
+
+        private void GenerateEnsureIsolatedDomainMethod(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
+        {
+            builder.OpenBlock("private static void EnsureIsolatedDomain(DomainConfiguration? config = null)");
+            builder.OpenBlock("if (_isolatedDomain == null)");
+            builder.OpenBlock("lock (_lock)");
+            builder.OpenBlock("if (_isolatedDomain == null)");
+            
+            // Create or merge configuration
+            if (config != null)
+            {
+                builder.AppendLine("// Apply attribute configuration as defaults");
+                builder.AppendLine("var defaultConfig = new DomainConfiguration");
+                builder.AppendLine("{");
+                builder.AppendLine($"    TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName,");
+                
+                if (!string.IsNullOrEmpty(config.PrivateBinPath))
+                    builder.AppendLine($"    PrivateBinPath = \"{config.PrivateBinPath}\",");
+                    
+                if (!string.IsNullOrEmpty(config.ApplicationBase))
+                    builder.AppendLine($"    ApplicationBase = \"{config.ApplicationBase}\",");
+                    
+                if (!string.IsNullOrEmpty(config.ConfigurationFile))
+                    builder.AppendLine($"    ConfigurationFile = \"{config.ConfigurationFile}\",");
+                    
+                if (config.EnableShadowCopy)
+                    builder.AppendLine("    EnableShadowCopy = true,");
+                    
+                if (!string.IsNullOrEmpty(config.AssemblySearchPaths))
+                    builder.AppendLine($"    AssemblySearchPaths = \"{config.AssemblySearchPaths}\"");
+                    
+                builder.AppendLine("};");
+                builder.AppendLine();
+                builder.AppendLine("// Merge with runtime config (runtime config takes precedence)");
+                builder.AppendLine("config = config ?? defaultConfig;");
+                builder.AppendLine("config.TargetAssembly = config.TargetAssembly ?? defaultConfig.TargetAssembly;");
+                builder.AppendLine("config.PrivateBinPath = config.PrivateBinPath ?? defaultConfig.PrivateBinPath;");
+                builder.AppendLine("config.ApplicationBase = config.ApplicationBase ?? defaultConfig.ApplicationBase;");
+                builder.AppendLine("config.ConfigurationFile = config.ConfigurationFile ?? defaultConfig.ConfigurationFile;");
+                builder.AppendLine("config.EnableShadowCopy = config.EnableShadowCopy || defaultConfig.EnableShadowCopy;");
+                builder.AppendLine("config.AssemblySearchPaths = config.AssemblySearchPaths ?? defaultConfig.AssemblySearchPaths;");
+            }
+            else
+            {
+                builder.AppendLine("config = config ?? new DomainConfiguration();");
+                builder.AppendLine($"config.TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName;");
+            }
+            
+            builder.AppendLine();
+            builder.AppendLine("var setup = new AppDomainSetup");
+            builder.AppendLine("{");
+            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory,");
+            builder.AppendLine("    PrivateBinPath = config.PrivateBinPath,");
+            builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
+            
+            if (config?.EnableShadowCopy == true)
+            {
+                builder.AppendLine(",");
+                builder.AppendLine("    ShadowCopyFiles = \"true\",");
+                builder.AppendLine("    ShadowCopyDirectories = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory");
+            }
+            
+            builder.AppendLine("};");
+            builder.AppendLine();
+            builder.AppendLine($"_isolatedDomain = AppDomain.CreateDomain(\"{className}_IsolatedDomain\", null, setup);");
+            
+            // Add assembly search paths if specified
+            if (config?.AssemblySearchPaths != null)
+            {
+                builder.AppendLine();
+                builder.AppendLine("// Add additional assembly search paths");
+                builder.AppendLine("if (!string.IsNullOrEmpty(config.AssemblySearchPaths))");
+                builder.AppendLine("{");
+                builder.AppendLine("    var resolver = _isolatedDomain.CreateInstanceAndUnwrap(");
+                builder.AppendLine("        typeof(DomainBridge.Runtime.AssemblyResolver).Assembly.FullName,");
+                builder.AppendLine("        typeof(DomainBridge.Runtime.AssemblyResolver).FullName) as DomainBridge.Runtime.AssemblyResolver;");
+                builder.AppendLine("    resolver?.AddSearchPaths(config.AssemblySearchPaths.Split(';'));");
+                builder.AppendLine("}");
+            }
+            
+            builder.CloseBlock();
+            builder.CloseBlock();
+            builder.CloseBlock();
+            builder.CloseBlock();
+            builder.AppendLine();
         }
     }
 }

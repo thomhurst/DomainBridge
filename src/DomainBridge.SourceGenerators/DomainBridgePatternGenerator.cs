@@ -53,7 +53,8 @@ namespace DomainBridge.SourceGenerators
                             var targetTypeValue = attribute.ConstructorArguments[0].Value;
                             if (targetTypeValue is INamedTypeSymbol targetType)
                             {
-                                var code = GenerateBridgeClass(classSymbol, targetType, compilation);
+                                var config = ExtractAttributeConfiguration(attribute);
+                                var code = GenerateBridgeClass(classSymbol, targetType, compilation, config);
                                 context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(code, Encoding.UTF8));
                             }
                             else
@@ -110,7 +111,39 @@ namespace DomainBridge.SourceGenerators
             }
         }
 
-        private string GenerateBridgeClass(INamedTypeSymbol bridgeClass, INamedTypeSymbol targetType, Compilation compilation)
+        private AttributeConfiguration ExtractAttributeConfiguration(AttributeData attribute)
+        {
+            var config = new AttributeConfiguration();
+            
+            foreach (var namedArg in attribute.NamedArguments)
+            {
+                switch (namedArg.Key)
+                {
+                    case "PrivateBinPath":
+                        config.PrivateBinPath = namedArg.Value.Value as string;
+                        break;
+                    case "ApplicationBase":
+                        config.ApplicationBase = namedArg.Value.Value as string;
+                        break;
+                    case "ConfigurationFile":
+                        config.ConfigurationFile = namedArg.Value.Value as string;
+                        break;
+                    case "EnableShadowCopy":
+                        config.EnableShadowCopy = namedArg.Value.Value is bool b && b;
+                        break;
+                    case "AssemblySearchPaths":
+                        config.AssemblySearchPaths = namedArg.Value.Value as string;
+                        break;
+                    case "IncludeNestedTypes":
+                        config.IncludeNestedTypes = namedArg.Value.Value is bool inc ? inc : true;
+                        break;
+                }
+            }
+            
+            return config;
+        }
+
+        private string GenerateBridgeClass(INamedTypeSymbol bridgeClass, INamedTypeSymbol targetType, Compilation compilation, AttributeConfiguration config)
         {
             var analyzer = new TypeAnalyzer();
             var processedTypes = new HashSet<string>();
@@ -187,14 +220,17 @@ namespace DomainBridge.SourceGenerators
             
             // Generate the bridge class
             var targetModel = typeModels[targetType.ToDisplayString()];
-            bridgeGenerator.Generate(builder, bridgeClass.Name, targetModel);
+            bridgeGenerator.Generate(builder, bridgeClass.Name, targetModel, config);
             
-            // Generate bridge classes for nested types
-            foreach (var kvp in typeModels.Where(t => t.Key != targetType.ToDisplayString()))
+            // Generate bridge classes for nested types if enabled
+            if (config.IncludeNestedTypes)
             {
-                builder.AppendLine();
-                var nestedTypeName = kvp.Value.Name + "Bridge";
-                bridgeGenerator.Generate(builder, nestedTypeName, kvp.Value);
+                foreach (var kvp in typeModels.Where(t => t.Key != targetType.ToDisplayString()))
+                {
+                    builder.AppendLine();
+                    var nestedTypeName = kvp.Value.Name + "Bridge";
+                    bridgeGenerator.Generate(builder, nestedTypeName, kvp.Value, null); // Nested types don't get config
+                }
             }
             
             builder.CloseBlock();
