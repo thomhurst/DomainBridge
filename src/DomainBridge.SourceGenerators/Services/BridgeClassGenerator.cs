@@ -22,6 +22,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
             GenerateConstructors(builder, bridgeClassName);
             GenerateFactoryMethods(builder, bridgeClassName, targetModel);
+            GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
             GenerateDisposalMethod(builder);
 
@@ -66,8 +67,8 @@ namespace DomainBridge.SourceGenerators.Services
 
         private void GenerateConstructors(CodeBuilder builder, string className)
         {
-            // Private constructor for internal use
-            builder.OpenBlock($"private {className}(dynamic instance)");
+            // Internal constructor for wrapping instances
+            builder.OpenBlock($"internal {className}(dynamic instance)");
             builder.AppendLine("_instance = instance ?? throw new ArgumentNullException(nameof(instance));");
             builder.CloseBlock();
             builder.AppendLine();
@@ -134,6 +135,30 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine();
         }
 
+        private void GenerateWrapInstanceMethod(CodeBuilder builder)
+        {
+            // Helper method to wrap instances in their bridge classes
+            builder.OpenBlock("private static T WrapInstance<T>(dynamic instance) where T : class");
+            builder.AppendLine("if (instance == null) return null;");
+            builder.AppendLine();
+            builder.AppendLine("// Use reflection to find the constructor");
+            builder.AppendLine("var bridgeType = typeof(T);");
+            builder.AppendLine("var constructor = bridgeType.GetConstructor(");
+            builder.AppendLine("    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,");
+            builder.AppendLine("    null,");
+            builder.AppendLine("    new[] { typeof(object) },");
+            builder.AppendLine("    null);");
+            builder.AppendLine();
+            builder.AppendLine("if (constructor == null)");
+            builder.AppendLine("{");
+            builder.AppendLine("    throw new InvalidOperationException($\"Bridge type {bridgeType.Name} must have an internal constructor that takes a dynamic/object parameter.\");");
+            builder.AppendLine("}");
+            builder.AppendLine();
+            builder.AppendLine("return (T)constructor.Invoke(new object[] { instance });");
+            builder.CloseBlock();
+            builder.AppendLine();
+        }
+
         private void GenerateDelegatingMembers(CodeBuilder builder, TypeModel targetModel)
         {
             // Generate properties
@@ -151,7 +176,7 @@ namespace DomainBridge.SourceGenerators.Services
                         // Need to wrap complex return types
                         var typeName = (property.Type as INamedTypeSymbol)?.Name ?? property.Type.Name;
                         builder.AppendLine($"var value = _instance.{property.Name};");
-                        builder.AppendLine($"return value == null ? null : new {typeName}Bridge(value);");
+                        builder.AppendLine($"return value == null ? null : WrapInstance<{typeName}Bridge>(value);");
                     }
                     else
                     {
@@ -195,7 +220,7 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     var typeName = (method.ReturnType as INamedTypeSymbol)?.Name ?? method.ReturnType.Name;
                     builder.AppendLine($"var result = {methodCall};");
-                    builder.AppendLine($"return result == null ? null : new {typeName}Bridge(result);");
+                    builder.AppendLine($"return result == null ? null : WrapInstance<{typeName}Bridge>(result);");
                 }
                 else
                 {
