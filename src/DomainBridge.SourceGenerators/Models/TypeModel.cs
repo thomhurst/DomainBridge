@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 
@@ -16,9 +17,9 @@ namespace DomainBridge.SourceGenerators.Models
 
         public TypeModel(INamedTypeSymbol symbol)
         {
-            Symbol = symbol;
+            Symbol = symbol ?? throw new ArgumentNullException(nameof(symbol));
             Name = symbol.Name;
-            Namespace = symbol.ContainingNamespace.ToDisplayString();
+            Namespace = symbol.ContainingNamespace?.ToDisplayString() ?? "";
             FullName = symbol.ToDisplayString();
         }
     }

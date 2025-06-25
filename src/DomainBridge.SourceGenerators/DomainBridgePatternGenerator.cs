@@ -48,11 +48,30 @@ namespace DomainBridge.SourceGenerators
                         if (attribute == null) continue;
 
                         // Get the target type from the attribute
-                        if (attribute.ConstructorArguments.Length > 0 && 
-                            attribute.ConstructorArguments[0].Value is INamedTypeSymbol targetType)
+                        if (attribute.ConstructorArguments.Length > 0)
                         {
-                            var code = GenerateBridgeClass(classSymbol, targetType, compilation);
-                            context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(code, Encoding.UTF8));
+                            var targetTypeValue = attribute.ConstructorArguments[0].Value;
+                            if (targetTypeValue is INamedTypeSymbol targetType)
+                            {
+                                var code = GenerateBridgeClass(classSymbol, targetType, compilation);
+                                context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(code, Encoding.UTF8));
+                            }
+                            else
+                            {
+                                // Report diagnostic if target type is not found
+                                var diagnostic = Diagnostic.Create(
+                                    new DiagnosticDescriptor(
+                                        "DBG002",
+                                        "Invalid Target Type",
+                                        "The target type for {0} could not be resolved",
+                                        "DomainBridge",
+                                        DiagnosticSeverity.Error,
+                                        true),
+                                    classDeclaration.GetLocation(),
+                                    classSymbol.Name);
+                                
+                                context.ReportDiagnostic(diagnostic);
+                            }
                         }
                     }
                     catch (Exception ex)
@@ -98,34 +117,49 @@ namespace DomainBridge.SourceGenerators
             var typesToProcess = new Queue<INamedTypeSymbol>();
             var typeModels = new Dictionary<string, TypeModel>();
             
-            // Start with the target type
-            typesToProcess.Enqueue(targetType);
-            
-            // Process all related types
-            while (typesToProcess.Count > 0)
+            try
             {
-                var typeSymbol = typesToProcess.Dequeue();
-                if (typeSymbol == null) continue;
+                // Start with the target type
+                typesToProcess.Enqueue(targetType);
                 
-                var typeFullName = typeSymbol.ToDisplayString();
-                
-                if (processedTypes.Contains(typeFullName))
-                    continue;
-                
-                processedTypes.Add(typeFullName);
-                
-                var typeModel = analyzer.AnalyzeType(typeSymbol);
-                typeModels[typeFullName] = typeModel;
-                
-                // Find referenced types
-                var referencedTypes = analyzer.GetReferencedTypes(typeModel);
-                foreach (var referencedType in referencedTypes.OfType<INamedTypeSymbol>())
+                // Process all related types
+                while (typesToProcess.Count > 0)
                 {
-                    if (referencedType != null && !processedTypes.Contains(referencedType.ToDisplayString()))
+                    var typeSymbol = typesToProcess.Dequeue();
+                    if (typeSymbol == null) continue;
+                    
+                    var typeFullName = typeSymbol.ToDisplayString();
+                    
+                    if (processedTypes.Contains(typeFullName))
+                        continue;
+                    
+                    processedTypes.Add(typeFullName);
+                    
+                    TypeModel typeModel;
+                    try
                     {
-                        typesToProcess.Enqueue(referencedType);
+                        typeModel = analyzer.AnalyzeType(typeSymbol);
+                        typeModels[typeFullName] = typeModel;
+                    }
+                    catch (Exception analyzeEx)
+                    {
+                        throw new InvalidOperationException($"Failed to analyze type {typeFullName}. Inner exception: {analyzeEx.GetType().Name}: {analyzeEx.Message}\nStack trace: {analyzeEx.StackTrace}", analyzeEx);
+                    }
+                    
+                    // Find referenced types
+                    var referencedTypes = analyzer.GetReferencedTypes(typeModel);
+                    foreach (var referencedType in referencedTypes.OfType<INamedTypeSymbol>())
+                    {
+                        if (referencedType != null && !processedTypes.Contains(referencedType.ToDisplayString()))
+                        {
+                            typesToProcess.Enqueue(referencedType);
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed during type analysis. Bridge: {bridgeClass.Name}, Target: {targetType.Name}. Details: {ex.Message}", ex);
             }
 
             // Generate the code
@@ -135,6 +169,7 @@ namespace DomainBridge.SourceGenerators
             
             // File header
             builder.AppendLine("// <auto-generated />");
+            builder.AppendLine("#nullable enable");
             builder.AppendLine("using System;");
             builder.AppendLine("using System.Collections.Generic;");
             builder.AppendLine("using System.Collections.Concurrent;");

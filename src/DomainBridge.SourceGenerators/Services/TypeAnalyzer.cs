@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -12,48 +13,86 @@ namespace DomainBridge.SourceGenerators.Services
 
         public TypeModel AnalyzeType(INamedTypeSymbol typeSymbol)
         {
+            if (typeSymbol == null)
+                throw new ArgumentNullException(nameof(typeSymbol));
+                
             var model = new TypeModel(typeSymbol);
 
             // Analyze properties
-            foreach (var member in typeSymbol.GetMembers().OfType<IPropertySymbol>())
+            try
             {
-                if (member.DeclaredAccessibility != Accessibility.Public || member.IsStatic)
-                    continue;
+                foreach (var member in typeSymbol.GetMembers().OfType<IPropertySymbol>())
+                {
+                    if (member.DeclaredAccessibility != Accessibility.Public)
+                        continue;
+                        
+                    // Skip static properties for now - we handle them separately
+                    if (member.IsStatic)
+                        continue;
 
-                var property = new PropertyModel(
-                    member.Name,
-                    member.Type,
-                    member.GetMethod != null,
-                    member.SetMethod != null,
-                    HasIgnoreAttribute(member));
+                    var property = new PropertyModel(
+                        member.Name,
+                        member.Type,
+                        member.GetMethod != null,
+                        member.SetMethod != null,
+                        HasIgnoreAttribute(member));
 
-                model.Properties.Add(property);
+                    model.Properties.Add(property);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to analyze properties of {typeSymbol.Name}: {ex.Message}", ex);
             }
 
             // Analyze methods
-            foreach (var member in typeSymbol.GetMembers().OfType<IMethodSymbol>())
+            try
             {
-                if (member.DeclaredAccessibility != Accessibility.Public || 
-                    member.IsStatic ||
-                    member.MethodKind != MethodKind.Ordinary ||
-                    member.IsGenericMethod)
-                    continue;
-
-                var method = new MethodModel(
-                    member.Name,
-                    member.ReturnType,
-                    HasIgnoreAttribute(member));
-
-                foreach (var param in member.Parameters)
+                foreach (var member in typeSymbol.GetMembers().OfType<IMethodSymbol>())
                 {
-                    method.Parameters.Add(new ParameterModel(
-                        param.Name,
-                        param.Type,
-                        param.HasExplicitDefaultValue,
-                        param.ExplicitDefaultValue));
-                }
+                    if (member.DeclaredAccessibility != Accessibility.Public)
+                        continue;
+                        
+                    // Skip static methods, constructors, and special methods
+                    if (member.IsStatic || 
+                        member.MethodKind != MethodKind.Ordinary ||
+                        member.IsGenericMethod)
+                        continue;
 
-                model.Methods.Add(method);
+                    try
+                    {
+                        var method = new MethodModel(
+                            member.Name,
+                            member.ReturnType,
+                            HasIgnoreAttribute(member));
+
+                        foreach (var param in member.Parameters)
+                        {
+                            try
+                            {
+                                method.Parameters.Add(new ParameterModel(
+                                    param.Name,
+                                    param.Type,
+                                    param.HasExplicitDefaultValue,
+                                    param.HasExplicitDefaultValue ? param.ExplicitDefaultValue : null));
+                            }
+                            catch (Exception paramEx)
+                            {
+                                throw new InvalidOperationException($"Failed to analyze parameter {param.Name} of method {member.Name}: {paramEx.Message}", paramEx);
+                            }
+                        }
+                        
+                        model.Methods.Add(method);
+                    }
+                    catch (Exception methodEx)
+                    {
+                        throw new InvalidOperationException($"Failed to analyze method {member.Name}: {methodEx.Message}", methodEx);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to analyze methods of {typeSymbol.Name}: {ex.Message}", ex);
             }
 
             // Analyze events
@@ -116,6 +155,9 @@ namespace DomainBridge.SourceGenerators.Services
 
         private void CollectTypes(ITypeSymbol type, HashSet<ITypeSymbol> types)
         {
+            if (type == null)
+                return;
+                
             if (type is IArrayTypeSymbol arrayType)
             {
                 CollectTypes(arrayType.ElementType, types);

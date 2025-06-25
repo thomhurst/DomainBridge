@@ -24,7 +24,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateFactoryMethods(builder, bridgeClassName, targetModel);
             GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
-            GenerateDisposalMethod(builder);
+            GenerateDisposalMethod(builder, targetModel);
 
             builder.CloseBlock();
         }
@@ -48,18 +48,18 @@ namespace DomainBridge.SourceGenerators.Services
 
             if (hasStaticInstance)
             {
-                builder.AppendLine("private static " + className + "? _instance;");
+                builder.AppendLine("private static " + className + "? _singletonInstance;");
                 builder.AppendLine();
                 builder.OpenBlock("public static " + className + " Instance");
                 builder.OpenBlock("get");
-                builder.OpenBlock("if (_instance == null)");
+                builder.OpenBlock("if (_singletonInstance == null)");
                 builder.OpenBlock("lock (_lock)");
-                builder.OpenBlock("if (_instance == null)");
-                builder.AppendLine("_instance = CreateIsolated();");
+                builder.OpenBlock("if (_singletonInstance == null)");
+                builder.AppendLine("_singletonInstance = CreateIsolated();");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.CloseBlock();
-                builder.AppendLine("return _instance;");
+                builder.AppendLine("return _singletonInstance;");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.AppendLine();
@@ -251,7 +251,7 @@ namespace DomainBridge.SourceGenerators.Services
             }
         }
 
-        private void GenerateDisposalMethod(CodeBuilder builder)
+        private void GenerateDisposalMethod(CodeBuilder builder, TypeModel targetModel)
         {
             // Static disposal method
             builder.OpenBlock("public static void UnloadDomain()");
@@ -266,7 +266,17 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock("finally");
             builder.AppendLine("_isolatedDomain = null;");
             builder.AppendLine("_remoteProxy = null;");
-            builder.AppendLine("_instance = null;");
+            
+            // Only clear singleton instance if the target has one
+            var hasStaticInstance = targetModel.Symbol.GetMembers("Instance")
+                .OfType<IPropertySymbol>()
+                .Any(p => p.IsStatic && p.DeclaredAccessibility == Accessibility.Public);
+            
+            if (hasStaticInstance)
+            {
+                builder.AppendLine("_singletonInstance = null;");
+            }
+            
             builder.CloseBlock();
             builder.CloseBlock();
             builder.CloseBlock();
