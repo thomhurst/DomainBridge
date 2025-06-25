@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,35 +21,73 @@ namespace DomainBridge.SourceGenerators
 
         public void Execute(GeneratorExecutionContext context)
         {
-            if (!(context.SyntaxReceiver is SyntaxReceiver receiver))
-                return;
-
-            var compilation = context.Compilation;
-            var domainBridgeAttribute = compilation.GetTypeByMetadataName("DomainBridge.DomainBridgeAttribute");
-            
-            if (domainBridgeAttribute == null)
-                return;
-
-            foreach (var classDeclaration in receiver.CandidateClasses)
+            try
             {
-                var model = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
-                var classSymbol = model.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
-                
-                if (classSymbol == null) continue;
+                if (!(context.SyntaxReceiver is SyntaxReceiver receiver))
+                    return;
 
-                // Check if class has [DomainBridge(typeof(...))] attribute
-                var attribute = classSymbol.GetAttributes()
-                    .FirstOrDefault(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, domainBridgeAttribute));
+                var compilation = context.Compilation;
+                var domainBridgeAttribute = compilation.GetTypeByMetadataName("DomainBridge.DomainBridgeAttribute");
                 
-                if (attribute == null) continue;
+                if (domainBridgeAttribute == null)
+                    return;
 
-                // Get the target type from the attribute
-                if (attribute.ConstructorArguments.Length > 0 && 
-                    attribute.ConstructorArguments[0].Value is INamedTypeSymbol targetType)
+                foreach (var classDeclaration in receiver.CandidateClasses)
                 {
-                    var code = GenerateBridgeClass(classSymbol, targetType, compilation);
-                    context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(code, Encoding.UTF8));
+                    try
+                    {
+                        var model = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
+                        var classSymbol = model.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
+                        
+                        if (classSymbol == null) continue;
+
+                        // Check if class has [DomainBridge(typeof(...))] attribute
+                        var attribute = classSymbol.GetAttributes()
+                            .FirstOrDefault(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, domainBridgeAttribute));
+                        
+                        if (attribute == null) continue;
+
+                        // Get the target type from the attribute
+                        if (attribute.ConstructorArguments.Length > 0 && 
+                            attribute.ConstructorArguments[0].Value is INamedTypeSymbol targetType)
+                        {
+                            var code = GenerateBridgeClass(classSymbol, targetType, compilation);
+                            context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(code, Encoding.UTF8));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "DBG001",
+                                "Bridge Generation Failed",
+                                $"Failed to generate bridge for {{0}}: {{1}}",
+                                "DomainBridge",
+                                DiagnosticSeverity.Error,
+                                true),
+                            classDeclaration.GetLocation(),
+                            classDeclaration.Identifier.Text,
+                            ex.ToString());
+                        
+                        context.ReportDiagnostic(diagnostic);
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                // Report a diagnostic for any unhandled exception
+                var diagnostic = Diagnostic.Create(
+                    new DiagnosticDescriptor(
+                        "DBG000",
+                        "Generator Failed",
+                        "DomainBridge generator failed: {0}",
+                        "DomainBridge",
+                        DiagnosticSeverity.Error,
+                        true),
+                    Location.None,
+                    ex.ToString());
+                
+                context.ReportDiagnostic(diagnostic);
             }
         }
 
@@ -66,6 +105,8 @@ namespace DomainBridge.SourceGenerators
             while (typesToProcess.Count > 0)
             {
                 var typeSymbol = typesToProcess.Dequeue();
+                if (typeSymbol == null) continue;
+                
                 var typeFullName = typeSymbol.ToDisplayString();
                 
                 if (processedTypes.Contains(typeFullName))
@@ -80,7 +121,7 @@ namespace DomainBridge.SourceGenerators
                 var referencedTypes = analyzer.GetReferencedTypes(typeModel);
                 foreach (var referencedType in referencedTypes.OfType<INamedTypeSymbol>())
                 {
-                    if (!processedTypes.Contains(referencedType.ToDisplayString()))
+                    if (referencedType != null && !processedTypes.Contains(referencedType.ToDisplayString()))
                     {
                         typesToProcess.Enqueue(referencedType);
                     }
