@@ -35,6 +35,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("private static AppDomain? _isolatedDomain;");
             builder.AppendLine("private static dynamic? _remoteProxy;");
             builder.AppendLine("private readonly dynamic _instance;");
+            builder.AppendLine("private static readonly ConcurrentDictionary<Type, System.Reflection.ConstructorInfo> _constructorCache = new ConcurrentDictionary<Type, System.Reflection.ConstructorInfo>();");
             builder.AppendLine();
         }
 
@@ -141,18 +142,24 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock("private static T WrapInstance<T>(dynamic instance) where T : class");
             builder.AppendLine("if (instance == null) return null;");
             builder.AppendLine();
-            builder.AppendLine("// Use reflection to find the constructor");
             builder.AppendLine("var bridgeType = typeof(T);");
-            builder.AppendLine("var constructor = bridgeType.GetConstructor(");
-            builder.AppendLine("    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,");
+            builder.AppendLine();
+            builder.AppendLine("// Get or cache the constructor");
+            builder.AppendLine("var constructor = _constructorCache.GetOrAdd(bridgeType, t =>");
+            builder.OpenBlock("");
+            builder.AppendLine("// Look for internal constructor that takes dynamic/object parameter");
+            builder.AppendLine("return t.GetConstructor(");
+            builder.AppendLine("    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance,");
             builder.AppendLine("    null,");
             builder.AppendLine("    new[] { typeof(object) },");
             builder.AppendLine("    null);");
+            builder.CloseBlock(");");
             builder.AppendLine();
             builder.AppendLine("if (constructor == null)");
-            builder.AppendLine("{");
-            builder.AppendLine("    throw new InvalidOperationException($\"Bridge type {bridgeType.Name} must have an internal constructor that takes a dynamic/object parameter.\");");
-            builder.AppendLine("}");
+            builder.OpenBlock("");
+            builder.AppendLine("// This shouldn't happen if the source generator is working correctly");
+            builder.AppendLine("throw new InvalidOperationException($\"Bridge type {bridgeType.Name} must have a constructor that takes a dynamic/object parameter.\");");
+            builder.CloseBlock();
             builder.AppendLine();
             builder.AppendLine("return (T)constructor.Invoke(new object[] { instance });");
             builder.CloseBlock();
