@@ -1,0 +1,58 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Core", "src\DomainBridge.Core\DomainBridge.Core.csproj", "{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.SourceGenerators", "src\DomainBridge.SourceGenerators\DomainBridge.SourceGenerators.csproj", "{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Attributes", "src\DomainBridge.Attributes\DomainBridge.Attributes.csproj", "{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9C6D5E4F-3B2A-1C9D-8E7F-6A5B4C3D2E1A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Tests", "tests\DomainBridge.Tests\DomainBridge.Tests.csproj", "{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Sample", "samples\DomainBridge.Sample\DomainBridge.Sample.csproj", "{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D} = {8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}
+		{2B3C4D5E-6F7A-8B9C-0D1E-2F3A4B5C6D7E} = {8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}
+		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F} = {8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}
+		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A} = {9C6D5E4F-3B2A-1C9D-8E7F-6A5B4C3D2E1A}
+		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C} = {5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}
+	EndGlobalSection
+EndGlobal

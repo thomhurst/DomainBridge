@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>DomainBridge</PackageId>
+    <Authors>DomainBridge Contributors</Authors>
+    <Description>Automatically generate AppDomain isolation proxies to solve assembly version conflicts</Description>
+    <PackageTags>appdomain;proxy;isolation;assembly;version-conflict</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DomainBridge.Attributes\DomainBridge.Attributes.csproj" />
+    <ProjectReference Include="..\DomainBridge.SourceGenerators\DomainBridge.SourceGenerators.csproj" 
+                      OutputItemType="Analyzer" 
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>
