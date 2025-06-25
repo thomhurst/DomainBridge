@@ -47,7 +47,7 @@ namespace DomainBridge.SourceGenerators.Services
 
                 if (IsComplexType(type) && _processedTypes.Contains(type.ToDisplayString()))
                 {
-                    return $"I{namedType.Name}";
+                    return $"{namedType.Name}Bridge";
                 }
             }
 

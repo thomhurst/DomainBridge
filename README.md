@@ -12,8 +12,6 @@ A .NET library that automatically generates AppDomain isolation proxies to solve
 
 ## Quick Start
 
-### Method 1: Bridge Pattern (Recommended)
-
 1. Install the NuGet package:
 ```bash
 dotnet add package DomainBridge
@@ -43,32 +41,13 @@ Console.WriteLine(doc.Name);
 ThirdPartyApplicationBridge.UnloadDomain();
 ```
 
-### Method 2: Interface Pattern
-
-1. Mark the target type:
-```csharp
-[DomainBridge]
-public class ThirdPartyApplication
-{
-    public static ThirdPartyApplication Instance { get; }
-    public Database GetDatabase(int id);
-}
-```
-
-2. Use the generated interface:
-```csharp
-var app = DomainBridge.Create<IThirdPartyApplication>();
-var db = app.GetDatabase(1);
-var doc = db.GetDocument("id");
-```
-
 ## How It Works
 
 DomainBridge uses C# source generators to:
-1. Analyze types marked with `[DomainBridge]` or referenced in bridge classes
-2. Generate strongly-typed proxy classes 
+1. Analyze the type specified in `[DomainBridge(typeof(...))]`
+2. Generate a partial class implementation with all members
 3. Marshal calls across AppDomain boundaries
-4. Automatically handle nested object returns
+4. Automatically create bridge classes for nested types
 
 ## Real-World Example
 
@@ -85,12 +64,34 @@ var result = app.ProcessData(input);
 // Different assembly versions, no conflicts, no crashes
 ```
 
+## Configuration
+
+You can optionally configure the isolated domain:
+
+```csharp
+// Override CreateIsolated method to provide custom configuration
+var app = LegacyAppBridge.CreateIsolated(new DomainConfiguration
+{
+    PrivateBinPath = "ThirdPartyLibs",
+    EnableShadowCopy = true,
+    AssemblyMappings = new Dictionary<string, string>
+    {
+        ["OldAssembly"] = @"C:\libs\OldAssembly.dll"
+    }
+});
+```
+
 ## Benefits
 
 - **Solve Version Conflicts** - Load different assembly versions in separate AppDomains
 - **Prevent Crashes** - Isolate unstable third-party libraries
 - **Zero Reflection** - All proxies are generated at compile time
 - **Natural API** - Use the bridge class just like the original
+
+## Requirements
+
+- .NET Framework 4.7.2 or higher (AppDomains are not supported in .NET Core/.NET 5+)
+- C# 9.0 or higher (for source generators)
 
 ## License
 
