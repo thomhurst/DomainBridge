@@ -5,10 +5,18 @@
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+    
+    <!-- Source generator development settings -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DomainBridge.Core\DomainBridge.Core.csproj" />
+    <ProjectReference Include="..\..\src\DomainBridge.Attributes\DomainBridge.Attributes.csproj" />
+    <ProjectReference Include="..\..\src\DomainBridge.SourceGenerators\DomainBridge.SourceGenerators.csproj" 
+                      OutputItemType="Analyzer" 
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
