@@ -94,7 +94,7 @@ namespace DomainBridge.Tests
             var bridges = new List<PerformanceTestServiceBridge>();
             
             // Act - Create many bridge instances
-            for (int i = 0; i < 1000; i++)
+            for (int i = 0; i < 100; i++)
             {
                 bridges.Add(PerformanceTestServiceBridge.Create(() => new PerformanceTestService { Id = 0 }));
             }
@@ -104,6 +104,7 @@ namespace DomainBridge.Tests
             {
                 bridge?.Dispose();
             }
+            
             bridges.Clear();
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -112,8 +113,8 @@ namespace DomainBridge.Tests
             var finalMemory = GC.GetTotalMemory(true);
             var memoryIncrease = finalMemory - initialMemory;
             
-            // Assert - Memory increase should be reasonable (less than 10MB)
-            await Assert.That(memoryIncrease).IsLessThan(10 * 1024 * 1024);
+            // Assert - Memory increase should be reasonable (less than 1MB)
+            await Assert.That(memoryIncrease).IsLessThan(1 * 1024 * 1024);
         }
     }
 
