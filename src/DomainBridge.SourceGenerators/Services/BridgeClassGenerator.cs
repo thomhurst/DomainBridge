@@ -10,7 +10,16 @@ namespace DomainBridge.SourceGenerators.Services
         public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Generate the partial class implementation
-            builder.OpenBlock($"public partial class {bridgeClassName} : MarshalByRefObject");
+            var classDeclaration = $"public partial class {bridgeClassName} : MarshalByRefObject";
+            
+            // Add interfaces if any
+            if (targetModel.Interfaces.Any())
+            {
+                var interfaceList = string.Join(", ", targetModel.Interfaces.Select(i => i.ToDisplayString()));
+                classDeclaration += $", {interfaceList}";
+            }
+            
+            builder.OpenBlock(classDeclaration);
 
             GenerateFields(builder);
             GenerateStaticInstance(builder, bridgeClassName, targetModel);

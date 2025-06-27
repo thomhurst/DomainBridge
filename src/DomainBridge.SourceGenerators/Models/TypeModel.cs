@@ -10,6 +10,9 @@ namespace DomainBridge.SourceGenerators.Models
         public string Name { get; }
         public string Namespace { get; }
         public string FullName { get; }
+        public List<INamedTypeSymbol> Interfaces { get; } =
+        [
+        ];
         public List<PropertyModel> Properties { get; } =
         [
         ];

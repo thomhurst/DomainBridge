@@ -18,6 +18,15 @@ namespace DomainBridge.SourceGenerators.Services
                 
             var model = new TypeModel(typeSymbol);
 
+            // Analyze interfaces
+            foreach (var interfaceSymbol in typeSymbol.AllInterfaces)
+            {
+                if (interfaceSymbol.DeclaredAccessibility == Accessibility.Public)
+                {
+                    model.Interfaces.Add(interfaceSymbol);
+                }
+            }
+
             // Analyze properties
             try
             {
