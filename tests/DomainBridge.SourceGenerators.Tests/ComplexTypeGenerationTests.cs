@@ -185,8 +185,8 @@ public class ComplexTypeGenerationTests
         var result = TestHelper.RunGenerator(source);
         var output = TestHelper.GetGeneratedOutput(result);
         
-        // Verify the InnerServiceBridge was generated (with flattened name for nested type)
-        await Assert.That(output).Contains("public partial class OuterClass_InnerServiceBridge : global::System.MarshalByRefObject, global::System.IDisposable");
+        // Verify the InnerServiceBridge was generated using the actual partial class name
+        await Assert.That(output).Contains("public partial class InnerServiceBridge : global::System.MarshalByRefObject, global::System.IDisposable");
         
         // Verify the constructor accepts the nested type
         await Assert.That(output).Contains("OuterClass.InnerService");
