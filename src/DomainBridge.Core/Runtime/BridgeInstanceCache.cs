@@ -11,6 +11,7 @@ namespace DomainBridge.Runtime
     {
         // Use ConditionalWeakTable to allow GC of both keys and values
         private static readonly ConditionalWeakTable<object, object> _cache = new ConditionalWeakTable<object, object>();
+        private static readonly object _cacheLock = new object();
         
         /// <summary>
         /// Gets or creates a bridge instance for the given object
@@ -30,19 +31,41 @@ namespace DomainBridge.Runtime
             if (factory == null)
                 throw new ArgumentNullException(nameof(factory));
                 
-            // Try to get from cache
+            // Try to get from cache without lock first (fast path)
             if (_cache.TryGetValue(instance, out var cached) && cached is TBridge bridge)
             {
                 return bridge;
             }
             
-            // Create new bridge
-            bridge = factory(instance);
-            
-            // Add to cache
-            _cache.Add(instance, bridge);
-            
-            return bridge;
+            // Use double-check locking pattern for thread safety
+            lock (_cacheLock)
+            {
+                // Check again inside the lock
+                if (_cache.TryGetValue(instance, out cached) && cached is TBridge bridgeInLock)
+                {
+                    return bridgeInLock;
+                }
+                
+                // Create new bridge
+                bridge = factory(instance);
+                
+                // Add to cache - this will throw if another thread added it between our checks
+                try
+                {
+                    _cache.Add(instance, bridge);
+                }
+                catch (ArgumentException)
+                {
+                    // Another thread added it - try to get their instance
+                    if (_cache.TryGetValue(instance, out cached) && cached is TBridge existingBridge)
+                    {
+                        return existingBridge;
+                    }
+                    throw; // Unexpected state
+                }
+                
+                return bridge;
+            }
         }
         
         /// <summary>

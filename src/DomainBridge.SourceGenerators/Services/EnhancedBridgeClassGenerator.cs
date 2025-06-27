@@ -31,7 +31,12 @@ namespace DomainBridge.SourceGenerators.Services
             
             GenerateFileHeader(builder);
             
-            builder.AppendLine($"namespace {bridgeInfo.BridgeNamespace}");
+            // For explicitly marked partial bridges, use the original namespace
+            var namespaceToUse = bridgeInfo.IsExplicitlyMarked 
+                ? targetType.ContainingNamespace.ToDisplayString()
+                : bridgeInfo.BridgeNamespace;
+            
+            builder.AppendLine($"namespace {namespaceToUse}");
             builder.OpenBlock("");
             
             GenerateBridgeClass(builder, bridgeInfo, typeModel, config);
@@ -106,6 +111,23 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("_instance = instance ?? throw new global::System.ArgumentNullException(nameof(instance));");
             builder.CloseBlock();
             builder.AppendLine();
+            
+            // Default constructor for explicitly marked types (needed when created in isolated domain)
+            if (bridgeInfo.IsExplicitlyMarked)
+            {
+                builder.OpenBlock($"public {bridgeInfo.BridgeClassName}()");
+                builder.AppendLine("// When created in isolated domain, create the target instance directly");
+                builder.AppendLine($"var targetType = typeof({typeModel.FullName});");
+                builder.AppendLine("var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
+                builder.OpenBlock("if (instanceProperty != null && instanceProperty.CanRead)");
+                builder.AppendLine("_instance = instanceProperty.GetValue(null);");
+                builder.CloseBlock();
+                builder.OpenBlock("else");
+                builder.AppendLine("_instance = Activator.CreateInstance(targetType);");
+                builder.CloseBlock();
+                builder.CloseBlock();
+                builder.AppendLine();
+            }
             
             // Static factory method for cached instance creation
             builder.AppendLine("/// <summary>");
@@ -210,10 +232,24 @@ namespace DomainBridge.SourceGenerators.Services
         
         private void GenerateMethod(CodeBuilder builder, MethodModel method)
         {
+            // Check if method is async (returns Task or Task<T>) before resolving types
+            var isAsync = IsTaskType(method.ReturnType, out var taskResultType);
+            
+            // Check if we'll transform the return type before resolving
+            var willTransformTaskResult = false;
+            if (isAsync && taskResultType != null)
+            {
+                willTransformTaskResult = _typeResolver.NeedsWrapping(taskResultType);
+            }
+            
             var returnType = _typeResolver.ResolveType(method.ReturnType);
             var parameters = GenerateParameterList(method.Parameters);
             
-            builder.OpenBlock($"public {returnType} {method.Name}({parameters})");
+            // Determine if we need async modifier
+            var needsAsync = isAsync && (taskResultType == null || willTransformTaskResult);
+            var asyncModifier = needsAsync ? "async " : "";
+            
+            builder.OpenBlock($"public {asyncModifier}{returnType} {method.Name}({parameters})");
             
             // Generate method call
             var args = GenerateArgumentList(method.Parameters);
@@ -222,6 +258,23 @@ namespace DomainBridge.SourceGenerators.Services
             if (method.ReturnType.SpecialType == SpecialType.System_Void)
             {
                 builder.AppendLine($"{methodCall};");
+            }
+            else if (isAsync && taskResultType != null && willTransformTaskResult)
+            {
+                // For Task<T> where T needs wrapping, we need special handling
+                var bridgeInfo = GetBridgeInfo(taskResultType);
+                builder.AppendLine($"var result = await {methodCall};");
+                builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+            }
+            else if (isAsync && taskResultType == null)
+            {
+                // For Task (non-generic), just await
+                builder.AppendLine($"await {methodCall};");
+            }
+            else if (isAsync)
+            {
+                // For Task<T> where T doesn't need wrapping
+                builder.AppendLine($"return {methodCall};");
             }
             else
             {
@@ -354,7 +407,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
             builder.AppendLine("};");
             builder.AppendLine();
-            builder.AppendLine($"var domainName = $\"{bridgeInfo.BridgeClassName}_IsolatedDomain_{{global::System.Guid.NewGuid():N}}\";");
+            builder.AppendLine($"var domainName = $\"{bridgeInfo.BridgeClassName}_IsolatedDomain_{{System.Guid.NewGuid():N}}\";");
             builder.AppendLine("_isolatedDomain = global::System.AppDomain.CreateDomain(domainName, null, setup);");
             
             builder.CloseBlock();
@@ -446,6 +499,96 @@ namespace DomainBridge.SourceGenerators.Services
                 return name == "List" || name == "IList";
             }
             return false;
+        }
+        
+        private bool IsTaskType(ITypeSymbol type, out ITypeSymbol? taskResultType)
+        {
+            taskResultType = null;
+            
+            if (type is INamedTypeSymbol namedType)
+            {
+                var fullName = namedType.ToDisplayString();
+                
+                // Check for Task (non-generic)
+                if (fullName == "System.Threading.Tasks.Task")
+                {
+                    return true;
+                }
+                
+                // Check for Task<T>
+                if (namedType.IsGenericType && namedType.ConstructedFrom?.Name == "Task")
+                {
+                    taskResultType = namedType.TypeArguments.FirstOrDefault();
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        private void GenerateAsyncReturnStatement(
+            CodeBuilder builder, 
+            ITypeSymbol returnType, 
+            ITypeSymbol? taskResultType, 
+            string methodCall)
+        {
+            // For Task (non-generic), just await the call
+            if (taskResultType == null)
+            {
+                builder.AppendLine($"await {methodCall};");
+                return;
+            }
+            
+            // For Task<T>, we need to await and potentially wrap the result
+            if (_typeResolver.NeedsWrapping(taskResultType))
+            {
+                // Handle collections specially
+                if (IsCollection(taskResultType, out var elementType) && _typeResolver.NeedsWrapping(elementType))
+                {
+                    builder.AppendLine($"var result = await {methodCall};");
+                    GenerateCollectionReturnForAsync(builder, taskResultType, elementType);
+                }
+                else
+                {
+                    // Single object wrapping
+                    var bridgeInfo = GetBridgeInfo(taskResultType);
+                    builder.AppendLine($"var result = await {methodCall};");
+                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                }
+            }
+            else
+            {
+                builder.AppendLine($"return await {methodCall};");
+            }
+        }
+        
+        private void GenerateCollectionReturnForAsync(
+            CodeBuilder builder, 
+            ITypeSymbol collectionType, 
+            ITypeSymbol elementType)
+        {
+            var bridgeInfo = GetBridgeInfo(elementType);
+            builder.AppendLine("if (result == null) return null!;");
+            
+            // Determine the collection type and generate appropriate wrapping
+            if (collectionType is IArrayTypeSymbol)
+            {
+                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
+                builder.AppendLine("    .ToArray();");
+            }
+            else if (IsListType(collectionType))
+            {
+                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
+                builder.AppendLine("    .ToList();");
+            }
+            else
+            {
+                // Default to IEnumerable
+                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
+                builder.AppendLine($"    item != null ? {bridgeInfo.BridgeFullName}.GetOrCreate(item) : null);");
+            }
         }
         
         private string FormatDefaultValue(object? value)

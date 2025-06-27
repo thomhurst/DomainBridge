@@ -101,7 +101,14 @@ namespace DomainBridge.SourceGenerators
                     }
                 }
                 
-                // First, generate bridges for partial classes using the original generator
+                // Collect all types that need bridges
+                var allTypesNeedingBridges = typeCollector.CollectTypes(explicitlyMarkedTypes);
+                
+                // Create type resolver with all collected types
+                var typeResolver = new BridgeTypeResolver(allTypesNeedingBridges);
+                var enhancedGenerator = new EnhancedBridgeClassGenerator(typeResolver, analyzer);
+                
+                // First, generate bridges for partial classes using the enhanced generator
                 foreach (var (classDecl, targetType, config) in partialClassesToGenerate)
                 {
                     try
@@ -110,16 +117,13 @@ namespace DomainBridge.SourceGenerators
                         var classSymbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
                         if (classSymbol == null) continue;
                         
-                        var typeModel = analyzer.AnalyzeType(targetType);
-                        var builder = new CodeBuilder();
-                        GenerateFileHeader(builder);
-                        builder.AppendLine($"namespace {classSymbol.ContainingNamespace.ToDisplayString()}");
-                        builder.OpenBlock("");
-                        generator.Generate(builder, classSymbol.Name, typeModel, config);
-                        builder.CloseBlock();
+                        // Create bridge info for explicitly marked type
+                        var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true);
                         
+                        // Generate using enhanced generator for async support
+                        var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, config);
                         var fileName = $"{classSymbol.Name}.g.cs";
-                        context.AddSource(fileName, SourceText.From(builder.ToString(), Encoding.UTF8));
+                        context.AddSource(fileName, SourceText.From(generatedCode, Encoding.UTF8));
                     }
                     catch (Exception ex)
                     {
@@ -138,21 +142,14 @@ namespace DomainBridge.SourceGenerators
                     }
                 }
                 
-                // Then collect all types that need auto-generated bridges
-                var allTypesNeedingBridges = typeCollector.CollectTypes(explicitlyMarkedTypes);
-                
-                // Only generate auto-discovered bridges if there are any
+                // Then generate auto-discovered bridges
                 var autoDiscoveredBridges = allTypesNeedingBridges
                     .Where(kvp => !kvp.Value.IsExplicitlyMarked)
                     .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                     
                 if (autoDiscoveredBridges.Count > 0)
                 {
-                    // Create type resolver with all collected types
-                    var typeResolver = new BridgeTypeResolver(allTypesNeedingBridges);
-                    var enhancedGenerator = new EnhancedBridgeClassGenerator(typeResolver, analyzer);
-                    
-                    // Generate bridges only for auto-discovered types
+                    // Generate bridges for auto-discovered types
                     foreach (var kvp in autoDiscoveredBridges)
                     {
                         var targetType = kvp.Key;

@@ -131,3 +131,8 @@ GitHub Actions workflow (`.github/workflows/dotnet.yml`):
 - Assembly resolution happens in isolated domains via `AssemblyResolver`
 - Configuration through `DomainConfiguration` affects isolated domain setup
 - Shadow copying can be enabled for runtime assembly updates
+
+## Tooling Notes
+
+### Filter Syntax
+- The filter syntax is: --treenode-filter /AssemblyName/Namespace/ClassName/MethodName
