@@ -46,6 +46,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [DependsOn(nameof(BridgeHandlesStringDefaultsWithQuotes))]
         public async Task BridgeHandlesStringDefaultsWithBackslashes()
         {
             // Arrange

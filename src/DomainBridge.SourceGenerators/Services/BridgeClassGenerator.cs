@@ -238,32 +238,8 @@ namespace DomainBridge.SourceGenerators.Services
 
         private string GetTypeDisplayString(ITypeSymbol type)
         {
-            // For now, we'll use dynamic for all non-primitive types to let AppDomain handle marshaling
-            if (type.SpecialType != SpecialType.None && type.SpecialType != SpecialType.System_Object)
-            {
-                return type.ToDisplayString();
-            }
-
-            if (type is IArrayTypeSymbol)
-            {
-                return "dynamic";
-            }
-
-            if (type is INamedTypeSymbol namedType)
-            {
-                // Keep generic collections with their type arguments
-                if (IsGenericCollection(namedType))
-                {
-                    return type.ToDisplayString();
-                }
-
-                // For complex types, use dynamic to allow cross-domain calls
-                if (IsComplexType(type))
-                {
-                    return "dynamic";
-                }
-            }
-
+            // Always return the actual type instead of dynamic
+            // The runtime will handle marshaling across AppDomain boundaries
             return type.ToDisplayString();
         }
 
