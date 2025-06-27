@@ -74,6 +74,11 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [DependsOn(nameof(CreateIsolated_WithConfig_Works))]
+        [DependsOn(nameof(BridgeInstance_ReturnsNotNull))]
+        [DependsOn(nameof(BridgeInstance_ReturnsSameInstance))]
+        [DependsOn(nameof(BridgeMethod_ReturnsExpectedValue))]
+        [DependsOn(nameof(BridgeMethod_ReturnsNestedBridge))]
         public void UnloadDomain_DoesNotThrow()
         {
             // Arrange - ensure domain is loaded
