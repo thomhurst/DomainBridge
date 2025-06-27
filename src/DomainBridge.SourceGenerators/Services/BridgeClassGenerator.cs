@@ -286,7 +286,7 @@ namespace DomainBridge.SourceGenerators.Services
         private string FormatDefaultValue(object? value)
         {
             if (value == null) return "null";
-            if (value is string str) return $"\"{str}\"";
+            if (value is string str) return FormatStringLiteral(str);
             if (value is bool b) return b ? "true" : "false";
             return value.ToString() ?? "null";
         }
@@ -309,6 +309,12 @@ namespace DomainBridge.SourceGenerators.Services
             return keywords.Contains(identifier) ? $"@{identifier}" : identifier;
         }
 
+        private string FormatStringLiteral(string value)
+        {
+            // Use verbatim string literals to avoid escaping issues with backslashes in paths
+            return $"@\"{value.Replace("\"", "\"\"")}\"";
+        }
+
         private void GenerateEnsureIsolatedDomainMethod(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
         {
             builder.OpenBlock("private static void EnsureIsolatedDomain(DomainConfiguration? config = null)");
@@ -325,19 +331,19 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine($"    TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName,");
                 
                 if (!string.IsNullOrEmpty(config.PrivateBinPath))
-                    builder.AppendLine($"    PrivateBinPath = \"{config.PrivateBinPath}\",");
+                    builder.AppendLine($"    PrivateBinPath = {FormatStringLiteral(config.PrivateBinPath)},");
                     
                 if (!string.IsNullOrEmpty(config.ApplicationBase))
-                    builder.AppendLine($"    ApplicationBase = \"{config.ApplicationBase}\",");
+                    builder.AppendLine($"    ApplicationBase = {FormatStringLiteral(config.ApplicationBase)},");
                     
                 if (!string.IsNullOrEmpty(config.ConfigurationFile))
-                    builder.AppendLine($"    ConfigurationFile = \"{config.ConfigurationFile}\",");
+                    builder.AppendLine($"    ConfigurationFile = {FormatStringLiteral(config.ConfigurationFile)},");
                     
                 if (config.EnableShadowCopy)
                     builder.AppendLine("    EnableShadowCopy = true,");
                     
                 if (!string.IsNullOrEmpty(config.AssemblySearchPaths))
-                    builder.AppendLine($"    AssemblySearchPaths = \"{config.AssemblySearchPaths}\"");
+                    builder.AppendLine($"    AssemblySearchPaths = {FormatStringLiteral(config.AssemblySearchPaths)}");
                     
                 builder.AppendLine("};");
                 builder.AppendLine();
