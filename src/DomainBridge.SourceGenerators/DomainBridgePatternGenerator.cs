@@ -247,9 +247,9 @@ namespace DomainBridge.SourceGenerators
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {
+                // Check for any class with attributes - let the compiler handle missing partial keyword
                 if (syntaxNode is ClassDeclarationSyntax classDeclaration &&
-                    classDeclaration.AttributeLists.Count > 0 &&
-                    classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+                    classDeclaration.AttributeLists.Count > 0)
                 {
                     CandidateClasses.Add(classDeclaration);
                 }
