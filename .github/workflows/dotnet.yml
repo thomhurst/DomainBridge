@@ -28,7 +28,7 @@ jobs:
           dotnet-version: 9.0.x
       - name: Run Pipeline
         run: dotnet run -c Release
-        working-directory: "DomainBridge.Pipeline"
+        working-directory: "src/DomainBridge.Pipeline"
         env:
           DOTNET_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'Production' || 'Development' }}
           NuGet__ApiKey: ${{ github.ref == 'refs/heads/main' && secrets.NUGET__APIKEY || null }}
