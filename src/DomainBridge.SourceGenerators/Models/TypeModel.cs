@@ -40,14 +40,18 @@ namespace DomainBridge.SourceGenerators.Models
         public bool HasGetter { get; }
         public bool HasSetter { get; }
         public bool IsIgnored { get; }
+        public bool IsIndexer { get; }
+        public List<ParameterModel> Parameters { get; }
 
-        public PropertyModel(string name, ITypeSymbol type, bool hasGetter, bool hasSetter, bool isIgnored = false)
+        public PropertyModel(string name, ITypeSymbol type, bool hasGetter, bool hasSetter, bool isIgnored = false, bool isIndexer = false)
         {
             Name = name;
             Type = type;
             HasGetter = hasGetter;
             HasSetter = hasSetter;
             IsIgnored = isIgnored;
+            IsIndexer = isIndexer;
+            Parameters = new List<ParameterModel>();
         }
     }
 

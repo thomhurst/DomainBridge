@@ -39,18 +39,27 @@ namespace DomainBridge.SourceGenerators.Services
                     // Skip static properties for now - we handle them separately
                     if (member.IsStatic)
                         continue;
-                        
-                    // Skip indexers for now - they're not supported yet
-                    // Indexers require special handling with parameters
-                    if (member.IsIndexer)
-                        continue;
 
                     var property = new PropertyModel(
                         member.Name,
                         member.Type,
                         member.GetMethod != null,
                         member.SetMethod != null,
-                        HasIgnoreAttribute(member));
+                        HasIgnoreAttribute(member),
+                        member.IsIndexer);
+                        
+                    // If it's an indexer, collect parameters
+                    if (member.IsIndexer)
+                    {
+                        foreach (var param in member.Parameters)
+                        {
+                            property.Parameters.Add(new ParameterModel(
+                                param.Name,
+                                param.Type,
+                                param.HasExplicitDefaultValue,
+                                param.HasExplicitDefaultValue ? param.ExplicitDefaultValue : null));
+                        }
+                    }
 
                     model.Properties.Add(property);
                 }

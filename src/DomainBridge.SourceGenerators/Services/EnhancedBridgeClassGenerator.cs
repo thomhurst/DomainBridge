@@ -249,31 +249,52 @@ namespace DomainBridge.SourceGenerators.Services
         {
             var propertyType = _typeResolver.ResolveType(property.Type);
             
-            builder.OpenBlock($"public {propertyType} {property.Name}");
+            // Handle indexers differently
+            if (property.IsIndexer)
+            {
+                var parameters = GenerateParameterList(property.Parameters);
+                builder.OpenBlock($"public {propertyType} this[{parameters}]");
+            }
+            else
+            {
+                builder.OpenBlock($"public {propertyType} {property.Name}");
+            }
             
             if (property.HasGetter)
             {
                 builder.OpenBlock("get");
                 builder.AppendLine("CheckDisposed();");
                 
+                // Generate the appropriate property/indexer access
+                string instanceAccess;
+                if (property.IsIndexer)
+                {
+                    var args = GenerateArgumentList(property.Parameters);
+                    instanceAccess = $"_instance[{args}]";
+                }
+                else
+                {
+                    instanceAccess = $"_instance.{property.Name}";
+                }
+                
                 // Check if property type is a dictionary with values that need wrapping
                 if (IsDictionary(property.Type, out var keyType, out var valueType) && _typeResolver.NeedsWrapping(valueType))
                 {
-                    builder.AppendLine($"var value = _instance.{property.Name};");
+                    builder.AppendLine($"var value = {instanceAccess};");
                     builder.AppendLine("if (value == null) return null!;");
                     GenerateDictionaryReturn(builder, property.Type, keyType, valueType, "value");
                 }
                 // Check if property type is a collection with elements that need wrapping
                 else if (IsCollection(property.Type, out var elementType) && _typeResolver.NeedsWrapping(elementType))
                 {
-                    builder.AppendLine($"var value = _instance.{property.Name};");
+                    builder.AppendLine($"var value = {instanceAccess};");
                     builder.AppendLine("if (value == null) return null!;");
                     GenerateCollectionReturn(builder, property.Type, elementType, "value");
                 }
                 else if (_typeResolver.NeedsWrapping(property.Type))
                 {
                     var bridgeInfo = GetBridgeInfo(property.Type);
-                    builder.AppendLine("var value = _instance." + property.Name + ";");
+                    builder.AppendLine($"var value = {instanceAccess};");
                     if (bridgeInfo.IsExplicitlyMarked)
                     {
                         // User-defined bridge - use Create with factory
@@ -287,7 +308,7 @@ namespace DomainBridge.SourceGenerators.Services
                 }
                 else
                 {
-                    builder.AppendLine($"return _instance.{property.Name};");
+                    builder.AppendLine($"return {instanceAccess};");
                 }
                 
                 builder.CloseBlock();
@@ -298,12 +319,24 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock("set");
                 builder.AppendLine("CheckDisposed();");
                 
+                // Generate the appropriate property/indexer assignment
+                string instanceAssignment;
+                if (property.IsIndexer)
+                {
+                    var args = GenerateArgumentList(property.Parameters);
+                    instanceAssignment = $"_instance[{args}]";
+                }
+                else
+                {
+                    instanceAssignment = $"_instance.{property.Name}";
+                }
+                
                 // Check if property type is a dictionary with values that need unwrapping
                 if (IsDictionary(property.Type, out var keyType, out var valueType) && _typeResolver.NeedsWrapping(valueType))
                 {
                     builder.AppendLine("if (value == null)");
                     builder.AppendLine("{");
-                    builder.AppendLine($"    _instance.{property.Name} = null;");
+                    builder.AppendLine($"    {instanceAssignment} = null;");
                     builder.AppendLine("}");
                     builder.AppendLine("else");
                     builder.AppendLine("{");
@@ -325,7 +358,7 @@ namespace DomainBridge.SourceGenerators.Services
                     builder.AppendLine($"        var bridgedValue = kvp.Value as global::{valueBridgeInfo.BridgeFullName};");
                     builder.AppendLine($"        result[kvp.Key] = bridgedValue?._instance;");
                     builder.AppendLine($"    }}");
-                    builder.AppendLine($"    _instance.{property.Name} = result;");
+                    builder.AppendLine($"    {instanceAssignment} = result;");
                     
                     builder.AppendLine("}");
                 }
@@ -334,7 +367,7 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     builder.AppendLine("if (value == null)");
                     builder.AppendLine("{");
-                    builder.AppendLine($"    _instance.{property.Name} = null;");
+                    builder.AppendLine($"    {instanceAssignment} = null;");
                     builder.AppendLine("}");
                     builder.AppendLine("else");
                     builder.AppendLine("{");
@@ -345,26 +378,26 @@ namespace DomainBridge.SourceGenerators.Services
                     
                     if (property.Type is IArrayTypeSymbol)
                     {
-                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc).ToArray();");
+                        builder.AppendLine($"    {instanceAssignment} = enumerable.Cast<dynamic>().Select(__convertFunc).ToArray();");
                     }
                     else if (IsListType(property.Type))
                     {
-                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc).ToList();");
+                        builder.AppendLine($"    {instanceAssignment} = enumerable.Cast<dynamic>().Select(__convertFunc).ToList();");
                     }
                     else
                     {
-                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc);");
+                        builder.AppendLine($"    {instanceAssignment} = enumerable.Cast<dynamic>().Select(__convertFunc);");
                     }
                     
                     builder.AppendLine("}");
                 }
                 else if (_typeResolver.NeedsWrapping(property.Type))
                 {
-                    builder.AppendLine($"_instance.{property.Name} = value?._instance;");
+                    builder.AppendLine($"{instanceAssignment} = value?._instance;");
                 }
                 else
                 {
-                    builder.AppendLine($"_instance.{property.Name} = value;");
+                    builder.AppendLine($"{instanceAssignment} = value;");
                 }
                 
                 builder.CloseBlock();

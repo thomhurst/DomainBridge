@@ -163,22 +163,56 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 var propertyType = GetTypeDisplayString(property.Type);
                 
-                builder.OpenBlock($"public {propertyType} {property.Name}");
-
-                if (property.HasGetter)
+                if (property.IsIndexer)
                 {
-                    builder.OpenBlock("get");
-                    builder.AppendLine("CheckDisposed();");
-                    builder.AppendLine($"return _instance.{property.Name};");
-                    builder.CloseBlock();
+                    // Generate indexer with parameters
+                    var parameters = string.Join(", ", property.Parameters.Select(p =>
+                    {
+                        var paramType = GetTypeDisplayString(p.Type);
+                        var defaultValue = p.HasDefaultValue ? $" = {FormatDefaultValue(p.DefaultValue)}" : "";
+                        return $"{paramType} {EscapeIdentifier(p.Name)}{defaultValue}";
+                    }));
+                    
+                    builder.OpenBlock($"public {propertyType} this[{parameters}]");
+                    
+                    if (property.HasGetter)
+                    {
+                        builder.OpenBlock("get");
+                        builder.AppendLine("CheckDisposed();");
+                        var args = string.Join(", ", property.Parameters.Select(p => EscapeIdentifier(p.Name)));
+                        builder.AppendLine($"return _instance[{args}];");
+                        builder.CloseBlock();
+                    }
+                    
+                    if (property.HasSetter)
+                    {
+                        builder.OpenBlock("set");
+                        builder.AppendLine("CheckDisposed();");
+                        var args = string.Join(", ", property.Parameters.Select(p => EscapeIdentifier(p.Name)));
+                        builder.AppendLine($"_instance[{args}] = value;");
+                        builder.CloseBlock();
+                    }
                 }
-
-                if (property.HasSetter)
+                else
                 {
-                    builder.OpenBlock("set");
-                    builder.AppendLine("CheckDisposed();");
-                    builder.AppendLine($"_instance.{property.Name} = value;");
-                    builder.CloseBlock();
+                    // Generate regular property
+                    builder.OpenBlock($"public {propertyType} {property.Name}");
+
+                    if (property.HasGetter)
+                    {
+                        builder.OpenBlock("get");
+                        builder.AppendLine("CheckDisposed();");
+                        builder.AppendLine($"return _instance.{property.Name};");
+                        builder.CloseBlock();
+                    }
+
+                    if (property.HasSetter)
+                    {
+                        builder.OpenBlock("set");
+                        builder.AppendLine("CheckDisposed();");
+                        builder.AppendLine($"_instance.{property.Name} = value;");
+                        builder.CloseBlock();
+                    }
                 }
 
                 builder.CloseBlock();
