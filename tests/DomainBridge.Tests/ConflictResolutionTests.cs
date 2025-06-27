@@ -60,11 +60,11 @@ namespace DomainBridge.Tests
             
             var serviceA = ConflictScenarios.ServiceABridge.CreateIsolated();
             var resultA = serviceA.GetResult();
-            await Assert.That((object)resultA.Value).IsEqualTo("Result from A");
+            await Assert.That(resultA.Value).IsEqualTo("Result from A");
             
             var serviceB = ConflictScenarios.ServiceBBridge.CreateIsolated();
             var resultB = serviceB.GetResult();
-            await Assert.That((object)resultB.Value).IsEqualTo("Result from B");
+            await Assert.That(resultB.Value).IsEqualTo("Result from B");
             
             // Clean up
             ConflictScenarios.ServiceABridge.UnloadDomain();
@@ -108,11 +108,11 @@ namespace DomainBridge.Tests
         {
             var order = OrderBridge.CreateIsolated();
             var orderItem = order.GetItem();
-            await Assert.That((object)orderItem.Name).IsEqualTo("OrderItem");
+            await Assert.That(orderItem.Name).IsEqualTo("OrderItem");
             
             var invoice = InvoiceBridge.CreateIsolated();
             var invoiceItem = invoice.GetItem();
-            await Assert.That((object)invoiceItem.Name).IsEqualTo("InvoiceItem");
+            await Assert.That(invoiceItem.Name).IsEqualTo("InvoiceItem");
             
             // Clean up
             OrderBridge.UnloadDomain();

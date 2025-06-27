@@ -50,9 +50,9 @@ namespace DomainBridge.Tests
             var doc = app.GetDocument("test-id");
 
             // Assert
-            await Assert.That((object)doc).IsNotNull();
-            await Assert.That((object)doc.Id).IsEqualTo("test-id");
-            await Assert.That((object)doc.Name).IsEqualTo("Test Doc");
+            await Assert.That(doc).IsNotNull();
+            await Assert.That(doc.Id).IsEqualTo("test-id");
+            await Assert.That(doc.Name).IsEqualTo("Test Doc");
         }
 
         [Test]
