@@ -117,8 +117,13 @@ namespace DomainBridge.SourceGenerators
                         var classSymbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
                         if (classSymbol == null) continue;
                         
-                        // Create bridge info for explicitly marked type
-                        var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true);
+                        // Create bridge info for explicitly marked type using the actual class name and namespace
+                        var bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
+                            ? ""
+                            : classSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                        var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true, 
+                            explicitBridgeClassName: classSymbol.Name,
+                            explicitBridgeNamespace: bridgeNamespace);
                         
                         // Generate using enhanced generator for async support
                         var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, config, context);

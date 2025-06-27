@@ -36,10 +36,8 @@ namespace DomainBridge.SourceGenerators.Services
             
             GenerateFileHeader(builder);
             
-            // For explicitly marked partial bridges, use the original namespace
-            var namespaceToUse = bridgeInfo.IsExplicitlyMarked 
-                ? targetType.ContainingNamespace.ToDisplayString()
-                : bridgeInfo.BridgeNamespace;
+            // Use the namespace from BridgeTypeInfo which handles both explicit and auto cases
+            var namespaceToUse = bridgeInfo.BridgeNamespace;
             
             builder.AppendLine($"namespace {namespaceToUse}");
             builder.OpenBlock("");

@@ -17,7 +17,9 @@ namespace DomainBridge.SourceGenerators.Models
         
         public BridgeTypeInfo(
             INamedTypeSymbol originalType, 
-            bool isExplicitlyMarked = false)
+            bool isExplicitlyMarked = false,
+            string? explicitBridgeClassName = null,
+            string? explicitBridgeNamespace = null)
         {
             if (originalType == null)
                 throw new ArgumentNullException(nameof(originalType));
@@ -29,11 +31,11 @@ namespace DomainBridge.SourceGenerators.Models
                 ? ""
                 : originalType.ContainingNamespace?.ToDisplayString() ?? "";
                 
-            // For explicitly marked types, use the original namespace
+            // For explicitly marked types, use the provided namespace or original namespace
             // For auto-generated types, use the DomainBridge.Generated pattern
             if (isExplicitlyMarked)
             {
-                BridgeNamespace = originalNamespace;
+                BridgeNamespace = explicitBridgeNamespace ?? originalNamespace;
             }
             else
             {
@@ -42,9 +44,18 @@ namespace DomainBridge.SourceGenerators.Models
                     : $"DomainBridge.Generated.{originalNamespace}";
             }
                 
-            // Handle nested types properly
-            var typeName = GetTypeNameWithContainingTypes(originalType);
-            BridgeClassName = $"{typeName}Bridge";
+            // Use explicit bridge class name if provided, otherwise generate one
+            if (!string.IsNullOrEmpty(explicitBridgeClassName))
+            {
+                BridgeClassName = explicitBridgeClassName;
+            }
+            else
+            {
+                // Handle nested types properly
+                var typeName = GetTypeNameWithContainingTypes(originalType);
+                BridgeClassName = $"{typeName}Bridge";
+            }
+            
             BridgeFullName = $"{BridgeNamespace}.{BridgeClassName}";
             
             // Generate unique filename based on full type name
