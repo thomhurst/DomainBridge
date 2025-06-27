@@ -1,0 +1,9 @@
+<Project>
+    <PropertyGroup>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <Author>Tom Longhurst</Author>
+        <PackageTags>appdomain;proxy;isolation;assembly;version-conflict</PackageTags>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+</Project>
