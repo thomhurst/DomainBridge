@@ -40,5 +40,6 @@ public class PackProjectsModule : Module<List<CommandResult>>
     private IEnumerable<FileInfo> GetProjectFiles()
     {
         yield return Sourcy.DotNet.Projects.DomainBridge_Core;
+        yield return Sourcy.DotNet.Projects.DomainBridge_Attributes;
     }
 }
