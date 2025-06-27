@@ -27,11 +27,10 @@ namespace DomainBridge.Tests
     public class KeywordParameterTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeHandlesReservedKeywordParameters()
         {
             // Arrange
-            var service = EventServiceBridge.CreateIsolated();
+            var service = EventServiceBridge.Create();
             
             // Act
             var result = service.LogEvent("TestEvent", 123, true);

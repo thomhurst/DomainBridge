@@ -8,10 +8,9 @@ namespace DomainBridge.Tests
     public class InheritanceTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task TestDerivedServiceInheritsBaseMembers()
         {
-            var service = DerivedServiceBridge.CreateIsolated();
+            var service = DerivedServiceBridge.Create();
             
             // Reset state to ensure test isolation
             service.BaseProperty = "Base";
@@ -45,10 +44,9 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task TestConcreteServiceInheritsAbstractMembers()
         {
-            var service = ConcreteServiceBridge.CreateIsolated();
+            var service = ConcreteServiceBridge.Create();
             
             // Test inherited property from abstract base class
             await Assert.That(service.AbstractProperty).IsEqualTo("Abstract");
@@ -69,11 +67,10 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task TestInheritanceChainWithMultipleLevels()
         {
             // Test a deeper inheritance chain
-            var grandChild = GrandChildServiceBridge.CreateIsolated();
+            var grandChild = GrandChildServiceBridge.Create();
             
             // Test properties from all levels of inheritance
             await Assert.That(grandChild.BaseProperty).IsEqualTo("Base");
@@ -96,10 +93,9 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task TestVirtualMethodOverrideChain()
         {
-            var service = DerivedServiceBridge.CreateIsolated();
+            var service = DerivedServiceBridge.Create();
             
             // Test that overridden virtual methods work correctly
             var message = service.GetBaseMessage();
@@ -113,10 +109,9 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task TestInheritedMemberAccessibility()
         {
-            var service = DerivedServiceBridge.CreateIsolated();
+            var service = DerivedServiceBridge.Create();
             
             // Test that only public members are accessible
             // This is a compile-time test - protected members should not be generated

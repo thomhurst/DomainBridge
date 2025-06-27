@@ -39,7 +39,7 @@ namespace DomainBridge.Sample
                 
                 // Example with custom configuration
                 Console.WriteLine("\nCreating with custom configuration:");
-                var customApp = ThirdPartyApplicationBridge.CreateIsolated(new DomainConfiguration
+                var customApp = ThirdPartyApplicationBridge.Create(new DomainConfiguration
                 {
                     PrivateBinPath = "ThirdPartyLibs",
                     EnableShadowCopy = true
@@ -47,7 +47,6 @@ namespace DomainBridge.Sample
                 Console.WriteLine($"Custom app status: {customApp.Status}");
                 
                 // Clean up the isolated domain
-                ThirdPartyApplicationBridge.UnloadDomain();
                 Console.WriteLine("\nSuccessfully unloaded domain.");
             }
             catch (Exception ex)

@@ -28,11 +28,10 @@ namespace DomainBridge.Tests
     public class StringEscapingTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeHandlesStringDefaultsWithQuotes()
         {
             // Arrange
-            var service = StringServiceBridge.CreateIsolated();
+            var service = StringServiceBridge.Create();
             
             // Act - call with default parameter
             var resultDefault = service.ProcessString();
@@ -44,11 +43,10 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeHandlesStringDefaultsWithBackslashes()
         {
             // Arrange
-            var service = StringServiceBridge.CreateIsolated();
+            var service = StringServiceBridge.Create();
             
             // Act - call with default parameter
             var resultDefault = service.ProcessPath();

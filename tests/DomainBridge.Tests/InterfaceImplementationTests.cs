@@ -50,7 +50,7 @@ namespace DomainBridge.Tests
         public async Task Bridge_Should_Implement_Target_Interfaces()
         {
             // Arrange & Act
-            var bridge = new ExampleServiceBridge();
+            var bridge = ExampleServiceBridge.Create();
 
             // Assert - Check if bridge implements the interfaces
             await Assert.That(bridge is IExampleService).IsTrue();
@@ -61,7 +61,7 @@ namespace DomainBridge.Tests
         public async Task Bridge_Should_Delegate_Interface_Methods()
         {
             // Arrange
-            var bridge = new ExampleServiceBridge();
+            var bridge = ExampleServiceBridge.Create();
             
             // Act - Cast to interface and call methods
             var service = (IExampleService)bridge;
@@ -77,7 +77,7 @@ namespace DomainBridge.Tests
         public async Task Bridge_Should_Handle_Interface_Events()
         {
             // Arrange
-            var bridge = new ExampleServiceBridge();
+            var bridge = ExampleServiceBridge.Create();
             var service = (IExampleService)bridge;
             string? receivedMessage = null;
             
@@ -93,7 +93,7 @@ namespace DomainBridge.Tests
         public async Task Bridge_Should_Work_With_Multiple_Interfaces()
         {
             // Arrange
-            var bridge = new ExampleServiceBridge();
+            var bridge = ExampleServiceBridge.Create();
             
             // Act - Use methods from both interfaces
             var service = (IExampleService)bridge;
@@ -108,11 +108,10 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task Isolated_Bridge_Should_Implement_Interfaces()
         {
             // Arrange & Act
-            using (var bridge = ExampleServiceBridge.CreateIsolated())
+            using (var bridge = ExampleServiceBridge.Create())
             {
                 // Assert - Check if isolated bridge implements the interfaces
                 await Assert.That(bridge is IExampleService).IsTrue();

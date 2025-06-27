@@ -16,14 +16,13 @@ namespace DomainBridge.Tests
         public async Task BasicBridge_CreatesInstance()
         {
             // Act
-            var bridge = new TestApplicationBridge(TestApplication.Instance);
+            var bridge = TestApplicationBridge.Create(() => TestApplication.Instance);
             
             // Assert
             await Assert.That(bridge).IsNotNull();
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task StaticInstanceProperty_ReturnsValidBridge()
         {
             // Act
@@ -35,7 +34,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task MethodWrapping_WorksCorrectly()
         {
             // Arrange
@@ -49,7 +47,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task NestedTypeWrapping_CreatesCorrectBridge()
         {
             // Arrange
@@ -69,7 +66,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new DerivedService();
-            var bridge = new DerivedServiceBridge(service);
+            var bridge = DerivedServiceBridge.Create(() => service);
             
             // Act & Assert - Base class members
             bridge.BaseProperty = "test base";
@@ -92,7 +89,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new ConcreteService();
-            var bridge = new ConcreteServiceBridge(service);
+            var bridge = ConcreteServiceBridge.Create(() => service);
             
             // Act & Assert - Abstract property
             bridge.AbstractProperty = "abstract test";
@@ -112,11 +109,10 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task IsolatedDomain_CreatesSuccessfully()
         {
             // Act
-            var isolatedBridge = TestApplicationBridge.CreateIsolated();
+            var isolatedBridge = TestApplicationBridge.Create();
             
             // Assert
             await Assert.That(isolatedBridge).IsNotNull();
@@ -125,7 +121,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task IsolatedDomain_WithConfiguration_Works()
         {
             // Arrange
@@ -135,7 +130,7 @@ namespace DomainBridge.Tests
             };
             
             // Act
-            var isolatedBridge = TestApplicationBridge.CreateIsolated(config);
+            var isolatedBridge = TestApplicationBridge.Create(config);
             
             // Assert
             await Assert.That(isolatedBridge).IsNotNull();
@@ -148,7 +143,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new CollectionTestService();
-            var bridge = new CollectionTestServiceBridge(service);
+            var bridge = CollectionTestServiceBridge.Create(() => service);
             
             // Act
             var items = bridge.GetItems();
@@ -164,7 +159,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new ErrorTestService();
-            var bridge = new ErrorTestServiceBridge(service);
+            var bridge = ErrorTestServiceBridge.Create(() => service);
             
             // Act & Assert
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -181,7 +176,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new AsyncTestService();
-            var bridge = new AsyncTestServiceBridge(service);
+            var bridge = AsyncTestServiceBridge.Create(() => service);
             
             // Act
             var result = await bridge.GetDataAsync();
@@ -195,7 +190,7 @@ namespace DomainBridge.Tests
         {
             // Arrange
             var service = new AsyncTestService();
-            var bridge = new AsyncTestServiceBridge(service);
+            var bridge = AsyncTestServiceBridge.Create(() => service);
             
             // Act
             var documentBridge = await bridge.GetDocumentAsync("async-doc");

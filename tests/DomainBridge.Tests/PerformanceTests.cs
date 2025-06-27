@@ -14,21 +14,21 @@ namespace DomainBridge.Tests
     public class PerformanceTests
     {
         [Test]
-        public async Task BridgeInstanceCache_ReusesInstances()
+        public async Task Bridge_CreatesPerInstanceAppDomains()
         {
-            // Arrange
-            var service = new PerformanceTestService();
+            // Arrange & Act
+            var bridge1 = PerformanceTestServiceBridge.Create(() => new PerformanceTestService());
+            var bridge2 = PerformanceTestServiceBridge.Create(() => new PerformanceTestService());
             
-            // Act
-            var bridge1 = PerformanceTestServiceBridge.GetOrCreate(service);
-            var bridge2 = PerformanceTestServiceBridge.GetOrCreate(service);
+            // Assert - Each bridge should have its own AppDomain (different instances)
+            await Assert.That(bridge1).IsNotSameReferenceAs(bridge2);
             
-            // Assert - Should reuse cached instances
-            await Assert.That(bridge1).IsSameReferenceAs(bridge2);
+            // Clean up
+            bridge1.Dispose();
+            bridge2.Dispose();
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task MethodCalls_PerformWithinReasonableTime()
         {
             // Arrange
@@ -48,7 +48,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task LargeDataTransfer_HandlesCorrectly()
         {
             // Arrange
@@ -64,7 +63,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task ConcurrentAccess_HandlesMultipleThreads()
         {
             // Arrange
@@ -99,7 +97,7 @@ namespace DomainBridge.Tests
             for (int i = 0; i < 1000; i++)
             {
                 var service = new PerformanceTestService { Id = i };
-                bridges.Add(new PerformanceTestServiceBridge(service));
+                bridges.Add(PerformanceTestServiceBridge.Create(() => service));
             }
             
             // Force garbage collection

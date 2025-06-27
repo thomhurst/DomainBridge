@@ -274,7 +274,16 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     var bridgeInfo = GetBridgeInfo(property.Type);
                     builder.AppendLine("var value = _instance." + property.Name + ";");
-                    builder.AppendLine($"return value != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(value) : null!;");
+                    if (bridgeInfo.IsExplicitlyMarked)
+                    {
+                        // User-defined bridge - use Create with factory
+                        builder.AppendLine($"return value != null ? global::{bridgeInfo.BridgeFullName}.Create(() => value) : null!;");
+                    }
+                    else
+                    {
+                        // Auto-generated bridge - use GetOrCreate
+                        builder.AppendLine($"return value != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(value) : null!;");
+                    }
                 }
                 else
                 {
@@ -492,7 +501,16 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     // Single object wrapping
                     var bridgeInfo = GetBridgeInfo(taskResultType);
-                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                    if (bridgeInfo.IsExplicitlyMarked)
+                    {
+                        // User-defined bridge - use Create with factory
+                        builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.Create(() => result) : null!;");
+                    }
+                    else
+                    {
+                        // Auto-generated bridge - use GetOrCreate
+                        builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                    }
                 }
             }
             else
@@ -588,7 +606,16 @@ namespace DomainBridge.SourceGenerators.Services
                 // Single object wrapping
                 var bridgeInfo = GetBridgeInfo(returnType);
                 builder.AppendLine($"var result = {methodCall};");
-                builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                if (bridgeInfo.IsExplicitlyMarked)
+                {
+                    // User-defined bridge - use Create with factory
+                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.Create(() => result) : null!;");
+                }
+                else
+                {
+                    // Auto-generated bridge - use GetOrCreate
+                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                }
             }
             else
             {
@@ -616,7 +643,16 @@ namespace DomainBridge.SourceGenerators.Services
             // Create a function variable to avoid lambda with dynamic
             var funcName = $"__bridgeFunc_{elementType.Name}";
             builder.AppendLine($"var {funcName} = new global::System.Func<dynamic, global::{bridgeInfo.BridgeFullName}>(item => ");
-            builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            if (bridgeInfo.IsExplicitlyMarked)
+            {
+                // User-defined bridge - use Create with factory
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.Create(() => item) : null!);");
+            }
+            else
+            {
+                // Auto-generated bridge - use GetOrCreate
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            }
             
             // Cast to IEnumerable first to ensure Cast method is available
             builder.AppendLine($"var enumerable = (global::System.Collections.IEnumerable){methodCall};");
@@ -662,7 +698,16 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine($"var result = new global::System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
             builder.AppendLine($"foreach (var kvp in {methodCall})");
             builder.AppendLine("{");
-            builder.AppendLine($"    var wrappedValue = kvp.Value != null ? global::{valueBridgeInfo.BridgeFullName}.GetOrCreate(kvp.Value) : null!;");
+            if (valueBridgeInfo.IsExplicitlyMarked)
+            {
+                // User-defined bridge - use Create with factory
+                builder.AppendLine($"    var wrappedValue = kvp.Value != null ? global::{valueBridgeInfo.BridgeFullName}.Create(() => kvp.Value) : null!;");
+            }
+            else
+            {
+                // Auto-generated bridge - use GetOrCreate
+                builder.AppendLine($"    var wrappedValue = kvp.Value != null ? global::{valueBridgeInfo.BridgeFullName}.GetOrCreate(kvp.Value) : null!;");
+            }
             builder.AppendLine($"    result[kvp.Key] = wrappedValue;");
             builder.AppendLine("}");
             builder.AppendLine("return result;");
@@ -952,7 +997,16 @@ namespace DomainBridge.SourceGenerators.Services
                     // Single object wrapping
                     var bridgeInfo = GetBridgeInfo(taskResultType);
                     builder.AppendLine($"var result = await {methodCall};");
-                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                    if (bridgeInfo.IsExplicitlyMarked)
+                    {
+                        // User-defined bridge - use Create with factory
+                        builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.Create(() => result) : null!;");
+                    }
+                    else
+                    {
+                        // Auto-generated bridge - use GetOrCreate
+                        builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                    }
                 }
             }
             else
@@ -972,7 +1026,16 @@ namespace DomainBridge.SourceGenerators.Services
             // Create a function variable to avoid lambda with dynamic
             var funcName = $"__bridgeFunc_{elementType.Name}";
             builder.AppendLine($"var {funcName} = new global::System.Func<dynamic, global::{bridgeInfo.BridgeFullName}>(item => ");
-            builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            if (bridgeInfo.IsExplicitlyMarked)
+            {
+                // User-defined bridge - use Create with factory
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.Create(() => item) : null!);");
+            }
+            else
+            {
+                // Auto-generated bridge - use GetOrCreate
+                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            }
             
             // Cast to IEnumerable first to ensure Cast method is available
             builder.AppendLine($"var enumerable = (global::System.Collections.IEnumerable)result;");

@@ -38,11 +38,10 @@ namespace DomainBridge.Tests
     public class FactoryMethodTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task CanCreateInstanceUsingFactoryMethod()
         {
             // Act
-            var bridge = ServiceWithConstructorArgsBridge.CreateIsolated();
+            var bridge = ServiceWithConstructorArgsBridge.Create(() => new ServiceWithConstructorArgs("Server=localhost;Database=Test", 30));
             
             // Assert
             await Assert.That(bridge).IsNotNull();
@@ -51,11 +50,10 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [NotInParallel("StaticState")]
         public async Task FactoryMethodWorksWithComplexInitialization()
         {
             // Create a more complex service that requires initialization
-            var bridge = ComplexServiceBridge.CreateIsolated();
+            var bridge = ComplexServiceBridge.Create(() => ComplexService.CreateAndInitialize());
             
             // Assert
             await Assert.That(bridge).IsNotNull();

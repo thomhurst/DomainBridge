@@ -7,7 +7,6 @@ namespace DomainBridge.Tests
     public class BasicBridgeTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeInstance_ReturnsNotNull()
         {
             // Act
@@ -18,7 +17,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeInstance_ReturnsSameInstance()
         {
             // Act
@@ -30,7 +28,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeMethod_ReturnsExpectedValue()
         {
             // Arrange
@@ -44,7 +41,6 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
         public async Task BridgeMethod_ReturnsNestedBridge()
         {
             // Arrange

@@ -93,14 +93,13 @@ namespace DomainBridge.Tests
     public class NestedTypeConflictTests
     {
         [Test]
-        [NotInParallel("StaticState")]
         public async Task HandlesNestedTypesWithSameNames()
         {
-            var order = OrderBridge.CreateIsolated();
+            var order = OrderBridge.Create();
             var orderItem = order.GetItem();
             await Assert.That(orderItem.Name).IsEqualTo("OrderItem");
             
-            var invoice = InvoiceBridge.CreateIsolated();
+            var invoice = InvoiceBridge.Create();
             var invoiceItem = invoice.GetItem();
             await Assert.That(invoiceItem.Name).IsEqualTo("InvoiceItem");
         }
