@@ -75,7 +75,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        public async Task VoidMethods_ExecuteCorrectly()
+        public void VoidMethods_ExecuteCorrectly()
         {
             // Arrange
             var bridge = EdgeCaseTestServiceBridge.Instance;

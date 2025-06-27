@@ -136,7 +136,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        public async Task TestLargeObjectGraphs()
+        public void TestLargeObjectGraphs()
         {
             // Create a deeply nested structure
             var depth = 100;
@@ -148,7 +148,7 @@ namespace DomainBridge.Tests
             
             // This should not cause stack overflow during serialization  
             var service = new NestedDataServiceBridge(new NestedDataService());
-            var nestedDataBridge = new global::DomainBridge.Generated.DomainBridge.Tests.NestedDataBridge(current);
+            var nestedDataBridge = new global::DomainBridge.Generated.DomainBridge.Tests.NestedDataBridge(current!);
             service.ProcessNestedData(nestedDataBridge);
             
             // If we get here, serialization succeeded

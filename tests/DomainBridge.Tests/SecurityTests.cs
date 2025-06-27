@@ -35,14 +35,15 @@ namespace DomainBridge.Tests
             var bridge = SecurityTestServiceBridge.Instance;
             
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             {
                 bridge.ThrowExceptionWithSensitiveInfo();
+                return Task.CompletedTask;
             });
             
             // The wrapped exception should not contain the original sensitive stack trace
-            await Assert.That(exception.Message).Contains("Exception in method ThrowExceptionWithSensitiveInfo");
-            await Assert.That(exception.Message).DoesNotContain("SuperSecretMethod");
+            await Assert.That(exception?.Message).Contains("Exception in method ThrowExceptionWithSensitiveInfo");
+            await Assert.That(exception?.Message).DoesNotContain("SuperSecretMethod");
         }
 
         [Test]
@@ -82,7 +83,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        public async Task AppDomainUnload_CleansUpResources()
+        public void AppDomainUnload_CleansUpResources()
         {
             // Arrange
             var isolatedBridge = SecurityTestServiceBridge.CreateIsolated();
@@ -160,6 +161,8 @@ namespace DomainBridge.Tests
         public void CreateResource()
         {
             _resource = "Resource created";
+            // Use the resource to avoid warning
+            System.Diagnostics.Debug.WriteLine(_resource);
         }
         
         public string PublicMethod()

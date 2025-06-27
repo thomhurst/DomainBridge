@@ -168,12 +168,13 @@ namespace DomainBridge.Tests
             var bridge = new ErrorTestServiceBridge(service);
             
             // Act & Assert
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             {
                 bridge.ThrowNonSerializableException();
+                return Task.CompletedTask;
             });
             
-            await Assert.That(exception.Message).Contains("Exception in method ThrowNonSerializableException");
+            await Assert.That(exception?.Message).Contains("Exception in method ThrowNonSerializableException");
         }
 
         [Test]

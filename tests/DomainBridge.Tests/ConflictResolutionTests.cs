@@ -53,7 +53,7 @@ namespace DomainBridge.Tests
     public class ConflictResolutionTests
     {
         [Test]
-        public async Task ConflictResolution_NotCurrentlyNeeded()
+        public void ConflictResolution_NotCurrentlyNeeded()
         {
             // Conflict resolution tests disabled until ServiceA/B bridge generation issues are resolved
             // The simplified generator approach reduces the need for complex conflict resolution
