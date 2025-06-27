@@ -55,15 +55,17 @@ namespace DomainBridge.SourceGenerators.Models
     {
         public string Name { get; }
         public ITypeSymbol ReturnType { get; }
+        public IMethodSymbol Symbol { get; }
         public List<ParameterModel> Parameters { get; } =
         [
         ];
         public bool IsIgnored { get; }
 
-        public MethodModel(string name, ITypeSymbol returnType, bool isIgnored = false)
+        public MethodModel(string name, ITypeSymbol returnType, IMethodSymbol symbol, bool isIgnored = false)
         {
             Name = name;
             ReturnType = returnType;
+            Symbol = symbol;
             IsIgnored = isIgnored;
         }
     }

@@ -14,18 +14,23 @@ namespace DomainBridge.SourceGenerators.Services
     {
         private readonly BridgeTypeResolver _typeResolver;
         private readonly TypeAnalyzer _typeAnalyzer;
+        private readonly MethodValidator _methodValidator;
+        private GeneratorExecutionContext? _context;
         
         public EnhancedBridgeClassGenerator(BridgeTypeResolver typeResolver, TypeAnalyzer typeAnalyzer)
         {
             _typeResolver = typeResolver ?? throw new ArgumentNullException(nameof(typeResolver));
             _typeAnalyzer = typeAnalyzer ?? throw new ArgumentNullException(nameof(typeAnalyzer));
+            _methodValidator = new MethodValidator();
         }
         
         public string GenerateBridgeClass(
             BridgeTypeInfo bridgeInfo,
             INamedTypeSymbol targetType,
-            AttributeConfiguration? config = null)
+            AttributeConfiguration? config = null,
+            GeneratorExecutionContext? context = null)
         {
+            _context = context;
             var typeModel = _typeAnalyzer.AnalyzeType(targetType);
             var builder = new CodeBuilder();
             
@@ -84,6 +89,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateConstructors(builder, bridgeInfo, typeModel);
             GenerateFactoryMethods(builder, bridgeInfo, typeModel, config);
             GenerateMembers(builder, typeModel);
+            GenerateHelperMethods(builder);
             GenerateDisposalMethod(builder, bridgeInfo, typeModel);
             
             builder.CloseBlock();
@@ -232,6 +238,16 @@ namespace DomainBridge.SourceGenerators.Services
         
         private void GenerateMethod(CodeBuilder builder, MethodModel method)
         {
+            // Validate method for AppDomain compatibility
+            if (_context.HasValue)
+            {
+                var diagnostics = _methodValidator.ValidateMethod(method, method.Symbol, method.Symbol.Locations.FirstOrDefault() ?? Location.None);
+                foreach (var diagnostic in diagnostics)
+                {
+                    _context.Value.ReportDiagnostic(diagnostic);
+                }
+            }
+            
             // Check if method is async (returns Task or Task<T>) before resolving types
             var isAsync = IsTaskType(method.ReturnType, out var taskResultType);
             
@@ -251,9 +267,12 @@ namespace DomainBridge.SourceGenerators.Services
             
             builder.OpenBlock($"public {asyncModifier}{returnType} {method.Name}({parameters})");
             
-            // Generate method call
+            // Generate method call with exception wrapping
             var args = GenerateArgumentList(method.Parameters);
             var methodCall = $"_instance.{method.Name}({args})";
+            
+            // Wrap in try-catch for exception handling
+            builder.OpenBlock("try");
             
             if (method.ReturnType.SpecialType == SpecialType.System_Void)
             {
@@ -280,6 +299,16 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 GenerateReturnStatement(builder, method.ReturnType, methodCall);
             }
+            
+            builder.CloseBlock(); // try
+            
+            // Add catch block for non-serializable exceptions
+            builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
+            builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
+            builder.AppendLine("throw new global::System.InvalidOperationException(");
+            builder.AppendLine($"    $\"Exception in method {method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
+            builder.AppendLine("    ex.InnerException);");
+            builder.CloseBlock(); // catch
             
             builder.CloseBlock();
             builder.AppendLine();
@@ -433,6 +462,49 @@ namespace DomainBridge.SourceGenerators.Services
             builder.CloseBlock();
             builder.CloseBlock();
             builder.AppendLine($"return ({bridgeInfo.BridgeClassName})_remoteProxy;");
+            builder.CloseBlock();
+            builder.AppendLine();
+        }
+        
+        private void GenerateHelperMethods(CodeBuilder builder)
+        {
+            // Generate IsSerializableException helper method
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine("/// Checks if an exception can be properly serialized across AppDomain boundaries");
+            builder.AppendLine("/// </summary>");
+            builder.OpenBlock("private static bool IsSerializableException(global::System.Exception ex)");
+            builder.AppendLine("if (ex == null) return true;");
+            builder.AppendLine();
+            builder.AppendLine("// Check if the exception type has the [Serializable] attribute");
+            builder.AppendLine("var exceptionType = ex.GetType();");
+            builder.AppendLine("if (!exceptionType.IsSerializable) return false;");
+            builder.AppendLine();
+            builder.AppendLine("// Check common serializable exception types");
+            builder.AppendLine("if (ex is global::System.ArgumentException ||");
+            builder.AppendLine("    ex is global::System.InvalidOperationException ||");
+            builder.AppendLine("    ex is global::System.NotSupportedException ||");
+            builder.AppendLine("    ex is global::System.NotImplementedException ||");
+            builder.AppendLine("    ex is global::System.UnauthorizedAccessException ||");
+            builder.AppendLine("    ex is global::System.TimeoutException ||");
+            builder.AppendLine("    ex is global::System.ApplicationException ||");
+            builder.AppendLine("    ex is global::System.SystemException)");
+            builder.AppendLine("    return true;");
+            builder.AppendLine();
+            builder.AppendLine("// For other exception types, try to determine if they're serializable");
+            builder.AppendLine("// by checking if they have a serialization constructor");
+            builder.AppendLine("try");
+            builder.AppendLine("{");
+            builder.AppendLine("    var constructor = exceptionType.GetConstructor(");
+            builder.AppendLine("        global::System.Reflection.BindingFlags.NonPublic | global::System.Reflection.BindingFlags.Public | global::System.Reflection.BindingFlags.Instance,");
+            builder.AppendLine("        null,");
+            builder.AppendLine("        new[] { typeof(global::System.Runtime.Serialization.SerializationInfo), typeof(global::System.Runtime.Serialization.StreamingContext) },");
+            builder.AppendLine("        null);");
+            builder.AppendLine("    return constructor != null;");
+            builder.AppendLine("}");
+            builder.AppendLine("catch");
+            builder.AppendLine("{");
+            builder.AppendLine("    return false;");
+            builder.AppendLine("}");
             builder.CloseBlock();
             builder.AppendLine();
         }

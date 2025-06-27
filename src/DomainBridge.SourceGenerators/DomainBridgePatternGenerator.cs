@@ -121,7 +121,7 @@ namespace DomainBridge.SourceGenerators
                         var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true);
                         
                         // Generate using enhanced generator for async support
-                        var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, config);
+                        var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, config, context);
                         var fileName = $"{classSymbol.Name}.g.cs";
                         context.AddSource(fileName, SourceText.From(generatedCode, Encoding.UTF8));
                     }
@@ -158,7 +158,7 @@ namespace DomainBridge.SourceGenerators
                         try
                         {
                             // Auto-discovered types don't have configuration
-                            var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, null);
+                            var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, null, context);
                             context.AddSource(bridgeInfo.FileName, SourceText.From(generatedCode, Encoding.UTF8));
                         }
                         catch (Exception ex)
