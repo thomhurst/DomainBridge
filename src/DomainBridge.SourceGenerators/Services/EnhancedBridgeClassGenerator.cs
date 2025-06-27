@@ -249,24 +249,148 @@ namespace DomainBridge.SourceGenerators.Services
                 }
             }
             
-            // Check if method is async (returns Task or Task<T>) before resolving types
+            // Check if method is async (returns Task or Task<T>)
             var isAsync = IsTaskType(method.ReturnType, out var taskResultType);
             
-            // Check if we'll transform the return type before resolving
-            var willTransformTaskResult = false;
-            if (isAsync && taskResultType != null)
+            if (isAsync)
             {
-                willTransformTaskResult = _typeResolver.NeedsWrapping(taskResultType);
+                // Generate async wrapper method that calls synchronous wrapper via Task.Run
+                GenerateAsyncBridgeMethod(builder, method, taskResultType);
+                // Also generate the internal synchronous wrapper method
+                GenerateSyncWrapperMethod(builder, method, taskResultType);
+            }
+            else
+            {
+                // Generate normal synchronous method
+                GenerateNormalMethod(builder, method);
+            }
+        }
+        
+        private void GenerateAsyncBridgeMethod(CodeBuilder builder, MethodModel method, ITypeSymbol? taskResultType)
+        {
+            var returnType = _typeResolver.ResolveType(method.ReturnType);
+            var parameters = GenerateParameterList(method.Parameters);
+            var syncMethodName = $"__DomainBridge_Sync_{method.Name}";
+            
+            builder.OpenBlock($"public async {returnType} {method.Name}({parameters})");
+            
+            // Wrap in try-catch for exception handling
+            builder.OpenBlock("try");
+            
+            // Generate the Task.Run call to the sync wrapper
+            var args = GenerateArgumentList(method.Parameters);
+            var hasCancellationToken = method.Parameters.Any(p => p.Type.Name == "CancellationToken");
+            var cancellationTokenParam = hasCancellationToken ? method.Parameters.First(p => p.Type.Name == "CancellationToken").Name : null;
+            
+            if (taskResultType == null)
+            {
+                // Task (non-generic)
+                if (hasCancellationToken)
+                {
+                    builder.AppendLine($"await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}), {cancellationTokenParam});");
+                }
+                else
+                {
+                    builder.AppendLine($"await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}));");
+                }
+            }
+            else
+            {
+                // Task<T>
+                if (hasCancellationToken)
+                {
+                    builder.AppendLine($"return await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}), {cancellationTokenParam});");
+                }
+                else
+                {
+                    builder.AppendLine($"return await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}));");
+                }
             }
             
+            builder.CloseBlock(); // try
+            
+            // Add catch block for non-serializable exceptions
+            builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
+            builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
+            builder.AppendLine("throw new global::System.InvalidOperationException(");
+            builder.AppendLine($"    $\"Exception in method {method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
+            builder.AppendLine("    ex.InnerException);");
+            builder.CloseBlock(); // catch
+            
+            builder.CloseBlock();
+            builder.AppendLine();
+        }
+        
+        private void GenerateSyncWrapperMethod(CodeBuilder builder, MethodModel method, ITypeSymbol? taskResultType)
+        {
+            // This method is public so it can be called across AppDomain boundaries
+            var syncMethodName = $"__DomainBridge_Sync_{method.Name}";
+            var returnType = taskResultType != null ? _typeResolver.ResolveType(taskResultType) : "void";
+            var parameters = GenerateParameterList(method.Parameters);
+            
+            builder.OpenBlock($"public {returnType} {syncMethodName}({parameters})");
+            
+            // Wrap in try-catch for exception handling
+            builder.OpenBlock("try");
+            
+            var args = GenerateArgumentList(method.Parameters);
+            // Handle ValueTask conversion
+            var isValueTask = method.ReturnType is INamedTypeSymbol namedType && 
+                             (namedType.Name == "ValueTask" || 
+                              (namedType.IsGenericType && namedType.ConstructedFrom?.Name == "ValueTask"));
+            
+            var methodCall = isValueTask 
+                ? $"_instance.{method.Name}({args}).AsTask().ConfigureAwait(false).GetAwaiter().GetResult()"
+                : $"_instance.{method.Name}({args}).ConfigureAwait(false).GetAwaiter().GetResult()";
+            
+            if (taskResultType == null)
+            {
+                // Task (non-generic) - just call and wait
+                builder.AppendLine($"{methodCall};");
+            }
+            else if (_typeResolver.NeedsWrapping(taskResultType))
+            {
+                // Task<T> where T needs wrapping
+                builder.AppendLine($"var result = {methodCall};");
+                
+                // Handle collections specially
+                if (IsCollection(taskResultType, out var elementType) && _typeResolver.NeedsWrapping(elementType))
+                {
+                    GenerateCollectionReturn(builder, taskResultType, elementType, "result");
+                }
+                else
+                {
+                    // Single object wrapping
+                    var bridgeInfo = GetBridgeInfo(taskResultType);
+                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                }
+            }
+            else
+            {
+                // Task<T> where T doesn't need wrapping
+                builder.AppendLine($"return {methodCall};");
+            }
+            
+            builder.CloseBlock(); // try
+            
+            // Add catch block for non-serializable exceptions
+            builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
+            builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
+            builder.AppendLine("throw new global::System.InvalidOperationException(");
+            builder.AppendLine($"    $\"Exception in method {syncMethodName}: {{ex.GetType().Name}}: {{ex.Message}}\",");
+            builder.AppendLine("    ex.InnerException);");
+            builder.CloseBlock(); // catch
+            
+            builder.CloseBlock();
+            builder.AppendLine();
+        }
+        
+        private void GenerateNormalMethod(CodeBuilder builder, MethodModel method)
+        {
             var returnType = _typeResolver.ResolveType(method.ReturnType);
             var parameters = GenerateParameterList(method.Parameters);
             
-            // Determine if we need async modifier
-            var needsAsync = isAsync && (taskResultType == null || willTransformTaskResult);
-            var asyncModifier = needsAsync ? "async " : "";
-            
-            builder.OpenBlock($"public {asyncModifier}{returnType} {method.Name}({parameters})");
+            builder.OpenBlock($"public {returnType} {method.Name}({parameters})");
             
             // Generate method call with exception wrapping
             var args = GenerateArgumentList(method.Parameters);
@@ -278,23 +402,6 @@ namespace DomainBridge.SourceGenerators.Services
             if (method.ReturnType.SpecialType == SpecialType.System_Void)
             {
                 builder.AppendLine($"{methodCall};");
-            }
-            else if (isAsync && taskResultType != null && willTransformTaskResult)
-            {
-                // For Task<T> where T needs wrapping, we need special handling
-                var bridgeInfo = GetBridgeInfo(taskResultType);
-                builder.AppendLine($"var result = await {methodCall};");
-                builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
-            }
-            else if (isAsync && taskResultType == null)
-            {
-                // For Task (non-generic), just await
-                builder.AppendLine($"await {methodCall};");
-            }
-            else if (isAsync)
-            {
-                // For Task<T> where T doesn't need wrapping
-                builder.AppendLine($"return {methodCall};");
             }
             else
             {
@@ -346,7 +453,13 @@ namespace DomainBridge.SourceGenerators.Services
             string methodCall)
         {
             var bridgeInfo = GetBridgeInfo(elementType);
-            builder.AppendLine($"var result = {methodCall};");
+            
+            // Check if we already have the result variable
+            if (!methodCall.Equals("result", StringComparison.Ordinal))
+            {
+                builder.AppendLine($"var result = {methodCall};");
+            }
+            
             builder.AppendLine("if (result == null) return null!;");
             
             // Determine the collection type and generate appropriate wrapping
@@ -617,6 +730,19 @@ namespace DomainBridge.SourceGenerators.Services
                 
                 // Check for Task<T>
                 if (namedType.IsGenericType && namedType.ConstructedFrom?.Name == "Task")
+                {
+                    taskResultType = namedType.TypeArguments.FirstOrDefault();
+                    return true;
+                }
+                
+                // Check for ValueTask (non-generic)
+                if (fullName == "System.Threading.Tasks.ValueTask")
+                {
+                    return true;
+                }
+                
+                // Check for ValueTask<T>
+                if (namedType.IsGenericType && namedType.ConstructedFrom?.Name == "ValueTask")
                 {
                     taskResultType = namedType.TypeArguments.FirstOrDefault();
                     return true;

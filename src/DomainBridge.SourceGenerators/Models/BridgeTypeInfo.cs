@@ -24,14 +24,23 @@ namespace DomainBridge.SourceGenerators.Models
                 
             OriginalFullName = originalType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
-            // Generate bridge namespace: DomainBridge.Generated.OriginalNamespace
+            // Generate bridge namespace
             var originalNamespace = originalType.ContainingNamespace?.IsGlobalNamespace == true
                 ? ""
                 : originalType.ContainingNamespace?.ToDisplayString() ?? "";
                 
-            BridgeNamespace = string.IsNullOrEmpty(originalNamespace)
-                ? "DomainBridge.Generated"
-                : $"DomainBridge.Generated.{originalNamespace}";
+            // For explicitly marked types, use the original namespace
+            // For auto-generated types, use the DomainBridge.Generated pattern
+            if (isExplicitlyMarked)
+            {
+                BridgeNamespace = originalNamespace;
+            }
+            else
+            {
+                BridgeNamespace = string.IsNullOrEmpty(originalNamespace)
+                    ? "DomainBridge.Generated"
+                    : $"DomainBridge.Generated.{originalNamespace}";
+            }
                 
             // Handle nested types properly
             var typeName = GetTypeNameWithContainingTypes(originalType);
