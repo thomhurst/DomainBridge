@@ -7,6 +7,7 @@ using TUnit.Core;
 namespace DomainBridge.Tests
 {
     // Test class with reserved keywords as parameter names
+    [Serializable]
     public class EventService
     {
         public string LogEvent(string @event, int @class, bool @checked = false)

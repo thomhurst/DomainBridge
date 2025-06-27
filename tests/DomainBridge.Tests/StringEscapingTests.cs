@@ -7,6 +7,7 @@ using TUnit.Core;
 namespace DomainBridge.Tests
 {
     // Test service with string parameters containing special characters
+    [Serializable]
     public class StringService
     {
         // Method with string default parameter that contains quotes

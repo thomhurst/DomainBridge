@@ -17,14 +17,14 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        public async Task BridgeInstance_ReturnsSameInstance()
+        public async Task BridgeInstance_CreatesPerInstanceAppDomains()
         {
-            // Act
+            // Act - Each access to Instance creates a new isolated AppDomain
             var app1 = TestApplicationBridge.Instance;
             var app2 = TestApplicationBridge.Instance;
 
-            // Assert
-            await Assert.That(app1).IsSameReferenceAs(app2);
+            // Assert - Each instance should have its own AppDomain (different references)
+            await Assert.That(app1).IsNotSameReferenceAs(app2);
         }
 
         [Test]
@@ -83,6 +83,7 @@ namespace DomainBridge.Tests
     }
     
     // Test target type
+    [Serializable]
     public class TestApplication
     {
         public static TestApplication Instance { get; } = new TestApplication();

@@ -62,6 +62,7 @@ namespace DomainBridge.Tests
     }
     
     // Scenario 2: Nested classes with same names
+    [Serializable]
     public class Order
     {
         [Serializable]
@@ -73,6 +74,7 @@ namespace DomainBridge.Tests
         public Item GetItem() => new Item();
     }
     
+    [Serializable]
     public class Invoice
     {
         [Serializable]

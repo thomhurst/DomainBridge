@@ -7,6 +7,7 @@ using TUnit.Core;
 namespace DomainBridge.Tests
 {
     // Test class that requires constructor parameters
+    [Serializable]
     public class ServiceWithConstructorArgs
     {
         public string ConnectionString { get; }
@@ -41,7 +42,7 @@ namespace DomainBridge.Tests
         public async Task CanCreateInstanceUsingFactoryMethod()
         {
             // Act
-            var bridge = ServiceWithConstructorArgsBridge.Create(() => new ServiceWithConstructorArgs("Server=localhost;Database=Test", 30));
+            using var bridge = ServiceWithConstructorArgsBridge.Create(() => new ServiceWithConstructorArgs("Server=localhost;Database=Test", 30));
             
             // Assert
             await Assert.That(bridge).IsNotNull();
@@ -53,7 +54,7 @@ namespace DomainBridge.Tests
         public async Task FactoryMethodWorksWithComplexInitialization()
         {
             // Create a more complex service that requires initialization
-            var bridge = ComplexServiceBridge.Create(() => ComplexService.CreateAndInitialize());
+            using var bridge = ComplexServiceBridge.Create(() => ComplexService.CreateAndInitialize());
             
             // Assert
             await Assert.That(bridge).IsNotNull();
@@ -64,6 +65,7 @@ namespace DomainBridge.Tests
     }
     
     // Complex service requiring initialization
+    [Serializable]
     public class ComplexService
     {
         public bool IsInitialized { get; private set; }

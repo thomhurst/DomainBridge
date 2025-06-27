@@ -16,7 +16,7 @@ namespace DomainBridge.Tests
         public async Task BasicBridge_CreatesInstance()
         {
             // Act
-            var bridge = TestApplicationBridge.Create(() => TestApplication.Instance);
+            using var bridge = TestApplicationBridge.Create(() => new TestApplication());
             
             // Assert
             await Assert.That(bridge).IsNotNull();
@@ -64,9 +64,8 @@ namespace DomainBridge.Tests
         [Test]
         public async Task InheritanceBridge_IncludesBaseMembers()
         {
-            // Arrange
-            var service = new DerivedService();
-            var bridge = DerivedServiceBridge.Create(() => service);
+            // Act
+            using var bridge = DerivedServiceBridge.Create(() => new DerivedService());
             
             // Act & Assert - Base class members
             bridge.BaseProperty = "test base";
@@ -87,9 +86,8 @@ namespace DomainBridge.Tests
         [Test]
         public async Task AbstractImplementation_IncludesAbstractMembers()
         {
-            // Arrange
-            var service = new ConcreteService();
-            var bridge = ConcreteServiceBridge.Create(() => service);
+            // Act
+            using var bridge = ConcreteServiceBridge.Create(() => new ConcreteService());
             
             // Act & Assert - Abstract property
             bridge.AbstractProperty = "abstract test";
@@ -141,11 +139,8 @@ namespace DomainBridge.Tests
         [Test]
         public async Task CollectionWrapping_HandlesListReturnTypes()
         {
-            // Arrange
-            var service = new CollectionTestService();
-            var bridge = CollectionTestServiceBridge.Create(() => service);
-            
             // Act
+            using var bridge = CollectionTestServiceBridge.Create(() => new CollectionTestService());
             var items = bridge.GetItems();
             
             // Assert
@@ -157,11 +152,8 @@ namespace DomainBridge.Tests
         [Test]
         public async Task ExceptionWrapping_HandlesNonSerializableExceptions()
         {
-            // Arrange
-            var service = new ErrorTestService();
-            var bridge = ErrorTestServiceBridge.Create(() => service);
-            
             // Act & Assert
+            using var bridge = ErrorTestServiceBridge.Create(() => new ErrorTestService());
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             {
                 bridge.ThrowNonSerializableException();
@@ -174,11 +166,8 @@ namespace DomainBridge.Tests
         [Test]
         public async Task AsyncMethod_ReturnsTaskCorrectly()
         {
-            // Arrange
-            var service = new AsyncTestService();
-            var bridge = AsyncTestServiceBridge.Create(() => service);
-            
             // Act
+            using var bridge = AsyncTestServiceBridge.Create(() => new AsyncTestService());
             var result = await bridge.GetDataAsync();
             
             // Assert
@@ -188,12 +177,9 @@ namespace DomainBridge.Tests
         [Test]
         public async Task AsyncMethod_WithBridgeReturnType_WrapsCorrectly()
         {
-            // Arrange
-            var service = new AsyncTestService();
-            var bridge = AsyncTestServiceBridge.Create(() => service);
-            
             // Act
-            var documentBridge = await bridge.GetDocumentAsync("async-doc");
+            using var bridge = AsyncTestServiceBridge.Create(() => new AsyncTestService());
+            using var documentBridge = await bridge.GetDocumentAsync("async-doc");
             
             // Assert
             await Assert.That(documentBridge).IsNotNull();
@@ -203,6 +189,7 @@ namespace DomainBridge.Tests
     }
 
     // Test service classes
+    [Serializable]
     public class CollectionTestService
     {
         public List<TestItem> GetItems()
@@ -225,6 +212,7 @@ namespace DomainBridge.Tests
         public string Name { get; set; } = "";
     }
 
+    [Serializable]
     public class ErrorTestService
     {
         public void ThrowNonSerializableException()
@@ -242,6 +230,7 @@ namespace DomainBridge.Tests
         public CustomNonSerializableException(string message) : base(message) { }
     }
 
+    [Serializable]
     public class AsyncTestService
     {
         public async Task<string> GetDataAsync()

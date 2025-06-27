@@ -96,11 +96,14 @@ namespace DomainBridge.Tests
             // Act - Create many bridge instances
             for (int i = 0; i < 1000; i++)
             {
-                var service = new PerformanceTestService { Id = i };
-                bridges.Add(PerformanceTestServiceBridge.Create(() => service));
+                bridges.Add(PerformanceTestServiceBridge.Create(() => new PerformanceTestService { Id = 0 }));
             }
             
-            // Force garbage collection
+            // Dispose all bridges
+            foreach (var bridge in bridges)
+            {
+                bridge?.Dispose();
+            }
             bridges.Clear();
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -114,6 +117,7 @@ namespace DomainBridge.Tests
         }
     }
 
+    [Serializable]
     public class PerformanceTestService
     {
         public static PerformanceTestService Instance { get; } = new PerformanceTestService();

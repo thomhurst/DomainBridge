@@ -16,6 +16,7 @@ namespace DomainBridge.Tests
         bool IsDisposed { get; }
     }
 
+    [Serializable]
     public class ExampleService : IExampleService, IDisposableService
     {
         public bool IsDisposed { get; private set; }
