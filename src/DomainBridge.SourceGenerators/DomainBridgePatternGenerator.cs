@@ -33,8 +33,13 @@ namespace DomainBridge.SourceGenerators
                     return;
 
                 var analyzer = new TypeAnalyzer();
-                var bridgeGenerator = new BridgeClassGenerator();
+                var generator = new BridgeClassGenerator();
+                var typeFilter = new TypeFilter();
+                var typeCollector = new TypeCollector(typeFilter);
+                var explicitlyMarkedTypes = new List<INamedTypeSymbol>();
+                var partialClassesToGenerate = new List<(ClassDeclarationSyntax classDecl, INamedTypeSymbol targetType, AttributeConfiguration config)>();
 
+                // First pass: collect all explicitly marked types
                 foreach (var classDeclaration in receiver.CandidateClasses)
                 {
                     try
@@ -56,27 +61,9 @@ namespace DomainBridge.SourceGenerators
                             var targetTypeValue = attribute.ConstructorArguments[0].Value;
                             if (targetTypeValue is INamedTypeSymbol targetType)
                             {
+                                explicitlyMarkedTypes.Add(targetType);
                                 var config = ExtractAttributeConfiguration(attribute);
-                                
-                                // Analyze only the target type
-                                var typeModel = analyzer.AnalyzeType(targetType);
-                                
-                                // Generate the bridge class
-                                var builder = new CodeBuilder();
-                                GenerateFileHeader(builder);
-                                
-                                var namespaceName = classSymbol.ContainingNamespace.IsGlobalNamespace 
-                                    ? "DomainBridge.Generated" 
-                                    : classSymbol.ContainingNamespace.ToDisplayString();
-                                
-                                builder.AppendLine($"namespace {namespaceName}");
-                                builder.OpenBlock("");
-                                
-                                bridgeGenerator.Generate(builder, classSymbol.Name, typeModel, config);
-                                
-                                builder.CloseBlock();
-                                
-                                context.AddSource($"{classSymbol.Name}.g.cs", SourceText.From(builder.ToString(), Encoding.UTF8));
+                                partialClassesToGenerate.Add((classDeclaration, targetType, config));
                             }
                             else
                             {
@@ -111,6 +98,87 @@ namespace DomainBridge.SourceGenerators
                             ex.ToString());
                         
                         context.ReportDiagnostic(diagnostic);
+                    }
+                }
+                
+                // First, generate bridges for partial classes using the original generator
+                foreach (var (classDecl, targetType, config) in partialClassesToGenerate)
+                {
+                    try
+                    {
+                        var model = compilation.GetSemanticModel(classDecl.SyntaxTree);
+                        var classSymbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
+                        if (classSymbol == null) continue;
+                        
+                        var typeModel = analyzer.AnalyzeType(targetType);
+                        var builder = new CodeBuilder();
+                        GenerateFileHeader(builder);
+                        builder.AppendLine($"namespace {classSymbol.ContainingNamespace.ToDisplayString()}");
+                        builder.OpenBlock("");
+                        generator.Generate(builder, classSymbol.Name, typeModel, config);
+                        builder.CloseBlock();
+                        
+                        var fileName = $"{classSymbol.Name}.g.cs";
+                        context.AddSource(fileName, SourceText.From(builder.ToString(), Encoding.UTF8));
+                    }
+                    catch (Exception ex)
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "DBG004",
+                                "Partial Bridge Generation Failed",
+                                "Failed to generate partial bridge for {0}: {1}",
+                                "DomainBridge",
+                                DiagnosticSeverity.Error,
+                                true),
+                            classDecl.GetLocation(),
+                            classDecl.Identifier.Text,
+                            ex.Message);
+                        context.ReportDiagnostic(diagnostic);
+                    }
+                }
+                
+                // Then collect all types that need auto-generated bridges
+                var allTypesNeedingBridges = typeCollector.CollectTypes(explicitlyMarkedTypes);
+                
+                // Only generate auto-discovered bridges if there are any
+                var autoDiscoveredBridges = allTypesNeedingBridges
+                    .Where(kvp => !kvp.Value.IsExplicitlyMarked)
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    
+                if (autoDiscoveredBridges.Count > 0)
+                {
+                    // Create type resolver with all collected types
+                    var typeResolver = new BridgeTypeResolver(allTypesNeedingBridges);
+                    var enhancedGenerator = new EnhancedBridgeClassGenerator(typeResolver, analyzer);
+                    
+                    // Generate bridges only for auto-discovered types
+                    foreach (var kvp in autoDiscoveredBridges)
+                    {
+                        var targetType = kvp.Key;
+                        var bridgeInfo = kvp.Value;
+                        
+                        try
+                        {
+                            // Auto-discovered types don't have configuration
+                            var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, null);
+                            context.AddSource(bridgeInfo.FileName, SourceText.From(generatedCode, Encoding.UTF8));
+                        }
+                        catch (Exception ex)
+                        {
+                            var diagnostic = Diagnostic.Create(
+                                new DiagnosticDescriptor(
+                                    "DBG003",
+                                    "Auto Bridge Generation Failed",
+                                    "Failed to generate auto bridge for {0}: {1}",
+                                    "DomainBridge",
+                                    DiagnosticSeverity.Error,
+                                    true),
+                                Location.None,
+                                targetType.Name,
+                                ex.Message);
+                            context.ReportDiagnostic(diagnostic);
+                        }
                     }
                 }
             }
