@@ -4,6 +4,7 @@
         <TargetFramework>net472</TargetFramework>
         <Description>Automatically generate AppDomain isolation proxies to solve assembly version conflicts</Description>
         <IsPackable>true</IsPackable>
+        <PackageId>DomainBridge</PackageId>
     </PropertyGroup>
 
     <ItemGroup>
