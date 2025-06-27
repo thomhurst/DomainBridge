@@ -20,7 +20,7 @@ namespace DomainBridge.SourceGenerators.Services
 
             GenerateFields(builder);
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
-            GenerateConstructors(builder, bridgeClassName, targetModel);
+            GenerateConstructors(builder, bridgeClassName, targetModel, config);
             GenerateFactoryMethods(builder, bridgeClassName, targetModel, config);
             GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
@@ -66,7 +66,7 @@ namespace DomainBridge.SourceGenerators.Services
             }
         }
 
-        private void GenerateConstructors(CodeBuilder builder, string className, TypeModel targetModel)
+        private void GenerateConstructors(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Internal constructor for wrapping instances
             builder.OpenBlock($"internal {className}(dynamic instance)");
@@ -77,16 +77,27 @@ namespace DomainBridge.SourceGenerators.Services
             // Public parameterless constructor - used when created in isolated domain
             builder.OpenBlock($"public {className}()");
             builder.AppendLine($"// When created in isolated domain, create the target instance directly");
-            builder.AppendLine($"var targetType = typeof(global::{targetModel.Symbol.ToDisplayString()});");
-            builder.AppendLine($"var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
-            builder.AppendLine($"if (instanceProperty != null && instanceProperty.CanRead)");
-            builder.AppendLine($"{{");
-            builder.AppendLine($"    _instance = instanceProperty.GetValue(null);");
-            builder.AppendLine($"}}");
-            builder.AppendLine($"else");
-            builder.AppendLine($"{{");
-            builder.AppendLine($"    _instance = Activator.CreateInstance(targetType);");
-            builder.AppendLine($"}}");
+            
+            if (!string.IsNullOrEmpty(config?.FactoryMethod))
+            {
+                // Use the specified factory method
+                builder.AppendLine($"_instance = {config.FactoryMethod}();");
+            }
+            else
+            {
+                // Fall back to default behavior
+                builder.AppendLine($"var targetType = typeof(global::{targetModel.Symbol.ToDisplayString()});");
+                builder.AppendLine($"var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
+                builder.AppendLine($"if (instanceProperty != null && instanceProperty.CanRead)");
+                builder.AppendLine($"{{");
+                builder.AppendLine($"    _instance = instanceProperty.GetValue(null);");
+                builder.AppendLine($"}}");
+                builder.AppendLine($"else");
+                builder.AppendLine($"{{");
+                builder.AppendLine($"    _instance = Activator.CreateInstance(targetType);");
+                builder.AppendLine($"}}");
+            }
+            
             builder.CloseBlock();
             builder.AppendLine();
         }

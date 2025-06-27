@@ -137,6 +137,9 @@ namespace DomainBridge.SourceGenerators
                     case "IncludeNestedTypes":
                         config.IncludeNestedTypes = namedArg.Value.Value is bool inc ? inc : true;
                         break;
+                    case "FactoryMethod":
+                        config.FactoryMethod = namedArg.Value.Value as string;
+                        break;
                 }
             }
             

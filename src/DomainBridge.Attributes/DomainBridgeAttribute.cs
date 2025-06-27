@@ -44,6 +44,12 @@ namespace DomainBridge
         public string? AssemblySearchPaths { get; set; }
 
         /// <summary>
+        /// Gets or sets the name of a static factory method that creates instances of the target type.
+        /// The method must be static, parameterless, and return an instance of the target type.
+        /// </summary>
+        public string? FactoryMethod { get; set; }
+
+        /// <summary>
         /// Initializes a new instance of the DomainBridgeAttribute class with a target type.
         /// </summary>
         /// <param name="targetType">The type to create a bridge for.</param>
