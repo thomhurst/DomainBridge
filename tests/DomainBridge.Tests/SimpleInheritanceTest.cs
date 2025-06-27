@@ -68,17 +68,5 @@ namespace DomainBridge.Tests
             var childMessage = grandChild.GetChildMessage();
             await Assert.That(childMessage).IsEqualTo("Child message");
         }
-
-        [Test]
-        [DependsOn(nameof(TestBasicInheritance))]
-        [DependsOn(nameof(TestAbstractInheritance))]
-        [DependsOn(nameof(TestDeepInheritance))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            DerivedServiceBridge.UnloadDomain();
-            ConcreteServiceBridge.UnloadDomain();
-            GrandChildServiceBridge.UnloadDomain();
-        }
     }
 }

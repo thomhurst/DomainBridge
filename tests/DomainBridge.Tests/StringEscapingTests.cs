@@ -57,14 +57,5 @@ namespace DomainBridge.Tests
             await Assert.That(resultDefault).IsEqualTo(@"Path: Some\Path\With\Backslashes");
             await Assert.That(resultCustom).IsEqualTo(@"Path: Another\Path");
         }
-
-        [Test]
-        [DependsOn(nameof(BridgeHandlesStringDefaultsWithQuotes))]
-        [DependsOn(nameof(BridgeHandlesStringDefaultsWithBackslashes))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            StringServiceBridge.UnloadDomain();
-        }
     }
 }

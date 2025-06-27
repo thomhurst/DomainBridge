@@ -205,22 +205,6 @@ namespace DomainBridge.Tests
             
             // Note: This test may fail if domains are reused - that's expected behavior
         }
-
-        [Test]
-        [DependsOn(nameof(TestThreadSafeCaching))]
-        [DependsOn(nameof(TestAsyncMethodSupport))]
-        [DependsOn(nameof(TestAsyncMethodsAcrossAppDomains_DocumentedLimitation))]
-        [DependsOn(nameof(TestInterfaceReturnTypes))]
-        [DependsOn(nameof(TestLargeObjectGraphs))]
-        [DependsOn(nameof(TestStaticFieldsDoNotPreventUnloading))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            ServiceWithInterfacesBridge.UnloadDomain();
-            NestedDataServiceBridge.UnloadDomain();
-            StaticFieldTestBridge.UnloadDomain();
-            // Note: AsyncServiceBridge is not unloaded since we used it with local instances only
-        }
     }
     
     // Helper types for testing

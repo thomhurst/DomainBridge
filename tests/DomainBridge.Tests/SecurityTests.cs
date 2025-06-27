@@ -103,19 +103,6 @@ namespace DomainBridge.Tests
             // Private/protected methods should not be generated in bridge
             // This is verified at compile time by the source generator
         }
-
-        [Test]
-        [DependsOn(nameof(IsolatedDomain_PreventsDirectAccess))]
-        [DependsOn(nameof(ExceptionWrapping_DoesNotLeakInternalDetails))]
-        [DependsOn(nameof(SerializationSecurity_RejectsUntrustedTypes))]
-        [DependsOn(nameof(DomainIsolation_PreventsStaticFieldSharing))]
-        [DependsOn(nameof(AppDomainUnload_CleansUpResources))]
-        [DependsOn(nameof(MethodAccess_RespectsPublicVisibility))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            SecurityTestServiceBridge.UnloadDomain();
-        }
     }
 
     public class SecurityTestService
