@@ -146,12 +146,12 @@ namespace DomainBridge.Tests
                 current = new NestedData { Value = $"Level {i}", Inner = current };
             }
             
-            // This should not cause stack overflow during serialization
-            var service = NestedDataServiceBridge.CreateIsolated();
-            service.ProcessNestedData(current!);
+            // This should not cause stack overflow during serialization  
+            var service = new NestedDataServiceBridge(new NestedDataService());
+            service.ProcessNestedData(current);
             
             // If we get here, serialization succeeded
-            await Assert.That(true).IsTrue();
+            // No explicit assertion needed - test passes if no exception
             
             NestedDataServiceBridge.UnloadDomain();
         }

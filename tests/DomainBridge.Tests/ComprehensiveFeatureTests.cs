@@ -1,0 +1,266 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using DomainBridge;
+using TUnit.Assertions;
+using TUnit.Core;
+
+namespace DomainBridge.Tests
+{
+    /// <summary>
+    /// Comprehensive tests covering all DomainBridge functionality
+    /// </summary>
+    public class ComprehensiveFeatureTests
+    {
+        [Test]
+        public async Task BasicBridge_CreatesInstance()
+        {
+            // Act
+            var bridge = new TestApplicationBridge(TestApplication.Instance);
+            
+            // Assert
+            await Assert.That(bridge).IsNotNull();
+        }
+
+        [Test]
+        public async Task StaticInstanceProperty_ReturnsValidBridge()
+        {
+            // Act
+            var bridge = TestApplicationBridge.Instance;
+            
+            // Assert
+            await Assert.That(bridge).IsNotNull();
+            await Assert.That(bridge.GetMessage()).IsEqualTo("Hello from TestApplication");
+        }
+
+        [Test]
+        public async Task MethodWrapping_WorksCorrectly()
+        {
+            // Arrange
+            var bridge = TestApplicationBridge.Instance;
+            
+            // Act
+            var message = bridge.GetMessage();
+            
+            // Assert
+            await Assert.That(message).IsEqualTo("Hello from TestApplication");
+        }
+
+        [Test]
+        public async Task NestedTypeWrapping_CreatesCorrectBridge()
+        {
+            // Arrange
+            var bridge = TestApplicationBridge.Instance;
+            
+            // Act
+            var document = bridge.GetDocument("test-doc");
+            
+            // Assert
+            await Assert.That(document).IsNotNull();
+            await Assert.That(document.Id).IsEqualTo("test-doc");
+            await Assert.That(document.Name).IsEqualTo("Test Doc");
+        }
+
+        [Test]
+        public async Task InheritanceBridge_IncludesBaseMembers()
+        {
+            // Arrange
+            var service = new DerivedService();
+            var bridge = new DerivedServiceBridge(service);
+            
+            // Act & Assert - Base class members
+            bridge.BaseProperty = "test base";
+            await Assert.That(bridge.BaseProperty).IsEqualTo("test base");
+            
+            bridge.SetBaseData("base data");
+            var baseMessage = bridge.GetBaseMessage();
+            await Assert.That(baseMessage).Contains("BaseService");
+            
+            // Act & Assert - Derived class members  
+            bridge.DerivedProperty = "test derived";
+            await Assert.That(bridge.DerivedProperty).IsEqualTo("test derived");
+            
+            var derivedMessage = bridge.GetDerivedMessage();
+            await Assert.That(derivedMessage).Contains("DerivedService");
+        }
+
+        [Test]
+        public async Task AbstractImplementation_IncludesAbstractMembers()
+        {
+            // Arrange
+            var service = new ConcreteService();
+            var bridge = new ConcreteServiceBridge(service);
+            
+            // Act & Assert - Abstract property
+            bridge.AbstractProperty = "abstract test";
+            await Assert.That(bridge.AbstractProperty).IsEqualTo("abstract test");
+            
+            // Act & Assert - Abstract method
+            var abstractMessage = bridge.GetAbstractMessage();
+            await Assert.That(abstractMessage).Contains("ConcreteService");
+            
+            // Act & Assert - Virtual method (overridden)
+            var virtualMessage = bridge.GetVirtualMessage();
+            await Assert.That(virtualMessage).Contains("ConcreteService overridden");
+            
+            // Act & Assert - Concrete method
+            var concreteMessage = bridge.GetConcreteMessage();
+            await Assert.That(concreteMessage).Contains("ConcreteService");
+        }
+
+        [Test]
+        public async Task IsolatedDomain_CreatesAndUnloads()
+        {
+            // Act
+            var isolatedBridge = TestApplicationBridge.CreateIsolated();
+            
+            // Assert
+            await Assert.That(isolatedBridge).IsNotNull();
+            var message = isolatedBridge.GetMessage();
+            await Assert.That(message).IsEqualTo("Hello from TestApplication");
+            
+            // Cleanup
+            TestApplicationBridge.UnloadDomain();
+        }
+
+        [Test]
+        public async Task IsolatedDomain_WithConfiguration_Works()
+        {
+            // Arrange
+            var config = new DomainConfiguration
+            {
+                EnableShadowCopy = true
+            };
+            
+            // Act
+            var isolatedBridge = TestApplicationBridge.CreateIsolated(config);
+            
+            // Assert
+            await Assert.That(isolatedBridge).IsNotNull();
+            var message = isolatedBridge.GetMessage();
+            await Assert.That(message).IsEqualTo("Hello from TestApplication");
+            
+            // Cleanup
+            TestApplicationBridge.UnloadDomain();
+        }
+
+        [Test]
+        public async Task CollectionWrapping_HandlesListReturnTypes()
+        {
+            // Arrange
+            var service = new CollectionTestService();
+            var bridge = new CollectionTestServiceBridge(service);
+            
+            // Act
+            var items = bridge.GetItems();
+            
+            // Assert
+            await Assert.That(items).IsNotNull();
+            await Assert.That(items.Count).IsEqualTo(3);
+            await Assert.That(items[0].Name).IsEqualTo("Item 1");
+        }
+
+        [Test]
+        public async Task ExceptionWrapping_HandlesNonSerializableExceptions()
+        {
+            // Arrange
+            var service = new ErrorTestService();
+            var bridge = new ErrorTestServiceBridge(service);
+            
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                bridge.ThrowNonSerializableException();
+            });
+            
+            await Assert.That(exception.Message).Contains("Exception in method ThrowNonSerializableException");
+        }
+
+        [Test]
+        public async Task AsyncMethod_ReturnsTaskCorrectly()
+        {
+            // Arrange
+            var service = new AsyncTestService();
+            var bridge = new AsyncTestServiceBridge(service);
+            
+            // Act
+            var result = await bridge.GetDataAsync();
+            
+            // Assert
+            await Assert.That(result).IsEqualTo("Async data");
+        }
+
+        [Test]
+        public async Task AsyncMethod_WithBridgeReturnType_WrapsCorrectly()
+        {
+            // Arrange
+            var service = new AsyncTestService();
+            var bridge = new AsyncTestServiceBridge(service);
+            
+            // Act
+            var documentBridge = await bridge.GetDocumentAsync("async-doc");
+            
+            // Assert
+            await Assert.That(documentBridge).IsNotNull();
+            await Assert.That(documentBridge.Id).IsEqualTo("async-doc");
+        }
+    }
+
+    // Test service classes
+    public class CollectionTestService
+    {
+        public List<TestItem> GetItems()
+        {
+            return new List<TestItem>
+            {
+                new TestItem { Name = "Item 1" },
+                new TestItem { Name = "Item 2" }, 
+                new TestItem { Name = "Item 3" }
+            };
+        }
+    }
+
+    [DomainBridge(typeof(CollectionTestService))]
+    public partial class CollectionTestServiceBridge { }
+
+    [Serializable]
+    public class TestItem
+    {
+        public string Name { get; set; } = "";
+    }
+
+    public class ErrorTestService
+    {
+        public void ThrowNonSerializableException()
+        {
+            throw new CustomNonSerializableException("This exception is not serializable");
+        }
+    }
+
+    [DomainBridge(typeof(ErrorTestService))]
+    public partial class ErrorTestServiceBridge { }
+
+    // Non-serializable exception for testing
+    public class CustomNonSerializableException : Exception
+    {
+        public CustomNonSerializableException(string message) : base(message) { }
+    }
+
+    public class AsyncTestService
+    {
+        public async Task<string> GetDataAsync()
+        {
+            await Task.Delay(1);
+            return "Async data";
+        }
+
+        public async Task<TestDocument> GetDocumentAsync(string id)
+        {
+            await Task.Delay(1);
+            return new TestDocument { Id = id, Name = "Async doc" };
+        }
+    }
+
+    [DomainBridge(typeof(AsyncTestService))]
+    public partial class AsyncTestServiceBridge { }
+}

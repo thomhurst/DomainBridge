@@ -88,6 +88,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateFields(builder);
             GenerateConstructors(builder, bridgeInfo, typeModel);
             GenerateFactoryMethods(builder, bridgeInfo, typeModel, config);
+            GenerateStaticInstanceProperty(builder, bridgeInfo, typeModel);
             GenerateMembers(builder, typeModel);
             GenerateHelperMethods(builder);
             GenerateDisposalMethod(builder, bridgeInfo, typeModel);
@@ -464,6 +465,33 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine($"return ({bridgeInfo.BridgeClassName})_remoteProxy;");
             builder.CloseBlock();
             builder.AppendLine();
+        }
+        
+        private void GenerateStaticInstanceProperty(CodeBuilder builder, BridgeTypeInfo bridgeInfo, TypeModel typeModel)
+        {
+            // Only generate for explicitly marked types that might have static Instance properties
+            if (!bridgeInfo.IsExplicitlyMarked)
+                return;
+                
+            // Check if the target type has a static Instance property
+            var targetType = typeModel.Symbol;
+            var staticInstanceProperty = targetType.GetMembers("Instance")
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(p => p.IsStatic && p.DeclaredAccessibility == Accessibility.Public && p.GetMethod != null);
+                
+            if (staticInstanceProperty != null)
+            {
+                builder.AppendLine("/// <summary>");
+                builder.AppendLine($"/// Gets a bridge around the static Instance property of {targetType.Name}");
+                builder.AppendLine("/// </summary>");
+                builder.OpenBlock($"public static {bridgeInfo.BridgeClassName} Instance");
+                builder.OpenBlock("get");
+                builder.AppendLine($"var targetInstance = {targetType.ToDisplayString()}.Instance;");
+                builder.AppendLine($"return GetOrCreate(targetInstance);");
+                builder.CloseBlock();
+                builder.CloseBlock();
+                builder.AppendLine();
+            }
         }
         
         private void GenerateHelperMethods(CodeBuilder builder)
