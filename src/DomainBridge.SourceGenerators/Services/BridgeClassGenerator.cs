@@ -341,7 +341,8 @@ namespace DomainBridge.SourceGenerators.Services
             
             builder.AppendLine("};");
             builder.AppendLine();
-            builder.AppendLine($"_isolatedDomain = AppDomain.CreateDomain(\"{className}_IsolatedDomain\", null, setup);");
+            builder.AppendLine($"var domainName = $\"{className}_IsolatedDomain_{{Guid.NewGuid():N}}\";");
+            builder.AppendLine("_isolatedDomain = AppDomain.CreateDomain(domainName, null, setup);");
             
             // Add assembly search paths if specified
             if (config?.AssemblySearchPaths != null)
