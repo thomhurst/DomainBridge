@@ -20,7 +20,7 @@ namespace DomainBridge.SourceGenerators.Services
 
             GenerateFields(builder);
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
-            GenerateConstructors(builder, bridgeClassName);
+            GenerateConstructors(builder, bridgeClassName, targetModel);
             GenerateFactoryMethods(builder, bridgeClassName, targetModel, config);
             GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
@@ -55,7 +55,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock("if (_singletonInstance == null)");
                 builder.OpenBlock("lock (_lock)");
                 builder.OpenBlock("if (_singletonInstance == null)");
-                builder.AppendLine("_singletonInstance = CreateIsolated();");
+                builder.AppendLine("_singletonInstance = GetOrCreateRemoteBridge();");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.CloseBlock();
@@ -66,7 +66,7 @@ namespace DomainBridge.SourceGenerators.Services
             }
         }
 
-        private void GenerateConstructors(CodeBuilder builder, string className)
+        private void GenerateConstructors(CodeBuilder builder, string className, TypeModel targetModel)
         {
             // Internal constructor for wrapping instances
             builder.OpenBlock($"internal {className}(dynamic instance)");
@@ -74,9 +74,19 @@ namespace DomainBridge.SourceGenerators.Services
             builder.CloseBlock();
             builder.AppendLine();
 
-            // Protected constructor for derived classes
-            builder.OpenBlock($"protected {className}()");
-            builder.AppendLine("_instance = GetOrCreateRemoteInstance();");
+            // Public parameterless constructor - used when created in isolated domain
+            builder.OpenBlock($"public {className}()");
+            builder.AppendLine($"// When created in isolated domain, create the target instance directly");
+            builder.AppendLine($"var targetType = typeof(global::{targetModel.Symbol.ToDisplayString()});");
+            builder.AppendLine($"var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
+            builder.AppendLine($"if (instanceProperty != null && instanceProperty.CanRead)");
+            builder.AppendLine($"{{");
+            builder.AppendLine($"    _instance = instanceProperty.GetValue(null);");
+            builder.AppendLine($"}}");
+            builder.AppendLine($"else");
+            builder.AppendLine($"{{");
+            builder.AppendLine($"    _instance = Activator.CreateInstance(targetType);");
+            builder.AppendLine($"}}");
             builder.CloseBlock();
             builder.AppendLine();
         }
@@ -86,8 +96,7 @@ namespace DomainBridge.SourceGenerators.Services
             // CreateIsolated method
             builder.OpenBlock($"public static {className} CreateIsolated(DomainConfiguration? config = null)");
             builder.AppendLine("EnsureIsolatedDomain(config);");
-            builder.AppendLine("var instance = GetOrCreateRemoteInstance();");
-            builder.AppendLine($"return new {className}(instance);");
+            builder.AppendLine("return GetOrCreateRemoteBridge();");
             builder.CloseBlock();
             builder.AppendLine();
 
@@ -95,24 +104,21 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateEnsureIsolatedDomainMethod(builder, className, targetModel, config);
 
             // GetOrCreateRemoteInstance method
-            builder.OpenBlock("private static dynamic GetOrCreateRemoteInstance()");
+            builder.OpenBlock($"private static {className} GetOrCreateRemoteBridge()");
             builder.OpenBlock("if (_remoteProxy == null)");
             builder.OpenBlock("lock (_lock)");
             builder.OpenBlock("if (_remoteProxy == null)");
             builder.AppendLine("EnsureIsolatedDomain();");
             builder.AppendLine();
-            builder.AppendLine("// Create proxy factory in isolated domain");
-            builder.AppendLine("var proxyType = typeof(DomainBridge.Runtime.ProxyFactory);");
-            builder.AppendLine("var factory = _isolatedDomain!.CreateInstanceAndUnwrap(");
-            builder.AppendLine("    proxyType.Assembly.FullName,");
-            builder.AppendLine("    proxyType.FullName) as dynamic;");
-            builder.AppendLine();
-            builder.AppendLine($"// Get instance of {targetModel.Name}");
-            builder.AppendLine($"_remoteProxy = factory.CreateProxy(typeof(global::{targetModel.Symbol.ToDisplayString()}));");
+            builder.AppendLine($"// Create bridge instance in isolated domain");
+            builder.AppendLine($"var bridgeType = typeof({className});");
+            builder.AppendLine("_remoteProxy = _isolatedDomain!.CreateInstanceAndUnwrap(");
+            builder.AppendLine("    bridgeType.Assembly.FullName,");
+            builder.AppendLine("    bridgeType.FullName);");
             builder.CloseBlock();
             builder.CloseBlock();
             builder.CloseBlock();
-            builder.AppendLine("return _remoteProxy;");
+            builder.AppendLine($"return ({className})_remoteProxy;");
             builder.CloseBlock();
             builder.AppendLine();
         }

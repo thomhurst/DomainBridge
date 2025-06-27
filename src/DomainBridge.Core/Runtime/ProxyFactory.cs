@@ -8,8 +8,18 @@ namespace DomainBridge.Runtime
     /// </summary>
     public class ProxyFactory : MarshalByRefObject
     {
-        public object CreateProxy(Type targetType)
+        public object CreateProxy(string assemblyName, string typeName)
         {
+            // Load the assembly and resolve the type in this AppDomain
+            var assembly = Assembly.Load(assemblyName);
+            var targetType = assembly.GetType(typeName);
+            
+            if (targetType == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not find type '{typeName}' in assembly '{assemblyName}'.");
+            }
+            
             // Check for static Instance property first
             var instanceProperty = targetType.GetProperty("Instance", 
                 BindingFlags.Public | BindingFlags.Static);
