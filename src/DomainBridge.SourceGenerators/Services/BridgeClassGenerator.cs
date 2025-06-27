@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -10,7 +11,7 @@ namespace DomainBridge.SourceGenerators.Services
         public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Generate the partial class implementation
-            var classDeclaration = $"public partial class {bridgeClassName} : MarshalByRefObject, IDisposable";
+            var classDeclaration = $"public partial class {bridgeClassName} : global::System.MarshalByRefObject, global::System.IDisposable";
             
             // Add interfaces if any
             if (targetModel.Interfaces.Any())
@@ -33,7 +34,7 @@ namespace DomainBridge.SourceGenerators.Services
 
         private void GenerateFields(CodeBuilder builder)
         {
-            builder.AppendLine("private readonly AppDomain _appDomain;");
+            builder.AppendLine("private readonly global::System.AppDomain _appDomain;");
             builder.AppendLine("private readonly dynamic _instance;");
             builder.AppendLine("private bool _disposed;");
             builder.AppendLine();
@@ -55,7 +56,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock("get");
                 builder.AppendLine($"var targetInstance = global::{targetModel.Symbol.ToDisplayString()}.Instance;");
                 builder.AppendLine($"// Note: This creates a bridge in the current AppDomain, not an isolated one");
-                builder.AppendLine($"return new {className}(targetInstance, AppDomain.CurrentDomain);");
+                builder.AppendLine($"return new {className}(targetInstance, global::System.AppDomain.CurrentDomain);");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.AppendLine();
@@ -68,9 +69,9 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("/// <summary>");
             builder.AppendLine($"/// Internal constructor for wrapping an existing instance of {targetModel.Symbol.Name}");
             builder.AppendLine("/// </summary>");
-            builder.OpenBlock($"private {className}(dynamic instance, AppDomain appDomain)");
-            builder.AppendLine("_instance = instance ?? throw new ArgumentNullException(nameof(instance));");
-            builder.AppendLine("_appDomain = appDomain ?? throw new ArgumentNullException(nameof(appDomain));");
+            builder.OpenBlock($"private {className}(dynamic instance, global::System.AppDomain appDomain)");
+            builder.AppendLine("_instance = instance ?? throw new global::System.ArgumentNullException(nameof(instance));");
+            builder.AppendLine("_appDomain = appDomain ?? throw new global::System.ArgumentNullException(nameof(appDomain));");
             builder.CloseBlock();
             builder.AppendLine();
         }
@@ -84,17 +85,17 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("/// <param name=\"factory\">Factory function to create the target instance in the isolated AppDomain</param>");
             builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
             builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
-            builder.OpenBlock($"public static {className} Create(Func<{targetModel.Symbol.ToDisplayString()}> factory, DomainConfiguration? config = null)");
-            builder.AppendLine("if (factory == null) throw new ArgumentNullException(nameof(factory));");
+            builder.OpenBlock($"public static {className} Create(global::System.Func<{targetModel.Symbol.ToDisplayString()}> factory, global::DomainBridge.DomainConfiguration? config = null)");
+            builder.AppendLine("if (factory == null) throw new global::System.ArgumentNullException(nameof(factory));");
             builder.AppendLine();
             builder.AppendLine("// Create configuration");
-            builder.AppendLine("config = config ?? new DomainConfiguration();");
+            builder.AppendLine("config = config ?? new global::DomainBridge.DomainConfiguration();");
             builder.AppendLine($"config.TargetAssembly = config.TargetAssembly ?? typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName;");
             builder.AppendLine();
             builder.AppendLine("// Create AppDomain");
-            builder.AppendLine("var setup = new AppDomainSetup");
+            builder.AppendLine("var setup = new global::System.AppDomainSetup");
             builder.AppendLine("{");
-            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory,");
+            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? global::System.AppDomain.CurrentDomain.BaseDirectory,");
             builder.AppendLine("    PrivateBinPath = config.PrivateBinPath,");
             builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
             builder.AppendLine("};");
@@ -105,14 +106,14 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("    setup.ShadowCopyDirectories = setup.ApplicationBase;");
             builder.AppendLine("}");
             builder.AppendLine();
-            builder.AppendLine($"var domainName = $\"{className}_{{Guid.NewGuid():N}}\";");
-            builder.AppendLine("var appDomain = AppDomain.CreateDomain(domainName, null, setup);");
+            builder.AppendLine($"var domainName = $\"{className}_{{global::System.Guid.NewGuid():N}}\";");
+            builder.AppendLine("var appDomain = global::System.AppDomain.CreateDomain(domainName, null, setup);");
             builder.AppendLine();
             builder.AppendLine("try");
             builder.AppendLine("{");
             builder.AppendLine("    // Create a proxy factory in the isolated domain");
-            builder.AppendLine("    var proxyFactoryType = typeof(ProxyFactory);");
-            builder.AppendLine("    var proxyFactory = (ProxyFactory)appDomain.CreateInstanceAndUnwrap(");
+            builder.AppendLine("    var proxyFactoryType = typeof(global::DomainBridge.Runtime.ProxyFactory);");
+            builder.AppendLine("    var proxyFactory = (global::DomainBridge.Runtime.ProxyFactory)appDomain.CreateInstanceAndUnwrap(");
             builder.AppendLine("        proxyFactoryType.Assembly.FullName,");
             builder.AppendLine("        proxyFactoryType.FullName);");
             builder.AppendLine();
@@ -131,7 +132,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("catch");
             builder.AppendLine("{");
             builder.AppendLine("    // If creation fails, unload the domain");
-            builder.AppendLine("    try { AppDomain.Unload(appDomain); } catch { }");
+            builder.AppendLine("    try { global::System.AppDomain.Unload(appDomain); } catch { }");
             builder.AppendLine("    throw;");
             builder.AppendLine("}");
             builder.CloseBlock();
@@ -148,7 +149,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine("/// </summary>");
                 builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
                 builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
-                builder.OpenBlock($"public static {className} Create(DomainConfiguration? config = null)");
+                builder.OpenBlock($"public static {className} Create(global::DomainBridge.DomainConfiguration? config = null)");
                 builder.AppendLine($"return Create(() => new {targetModel.Symbol.ToDisplayString()}(), config);");
                 builder.CloseBlock();
                 builder.AppendLine();
@@ -235,7 +236,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("/// </summary>");
             builder.OpenBlock("public void Dispose()");
             builder.AppendLine("Dispose(true);");
-            builder.AppendLine("GC.SuppressFinalize(this);");
+            builder.AppendLine("global::System.GC.SuppressFinalize(this);");
             builder.CloseBlock();
             builder.AppendLine();
 
@@ -244,13 +245,13 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock("if (!_disposed)");
             builder.OpenBlock("if (disposing)");
             builder.AppendLine("// Dispose managed resources");
-            builder.OpenBlock("if (_appDomain != null && _appDomain != AppDomain.CurrentDomain)");
+            builder.OpenBlock("if (_appDomain != null && _appDomain != global::System.AppDomain.CurrentDomain)");
             builder.OpenBlock("try");
-            builder.AppendLine("AppDomain.Unload(_appDomain);");
+            builder.AppendLine("global::System.AppDomain.Unload(_appDomain);");
             builder.CloseBlock();
-            builder.OpenBlock("catch (Exception ex)");
+            builder.OpenBlock("catch (global::System.Exception ex)");
             builder.AppendLine("// Log but don't throw from Dispose");
-            builder.AppendLine("System.Diagnostics.Debug.WriteLine($\"Failed to unload AppDomain: {ex.Message}\");");
+            builder.AppendLine("global::System.Diagnostics.Debug.WriteLine($\"Failed to unload AppDomain: {ex.Message}\");");
             builder.CloseBlock();
             builder.CloseBlock();
             builder.CloseBlock();
@@ -262,7 +263,7 @@ namespace DomainBridge.SourceGenerators.Services
             // Generate CheckDisposed method
             builder.OpenBlock("private void CheckDisposed()");
             builder.OpenBlock("if (_disposed)");
-            builder.AppendLine("throw new ObjectDisposedException(GetType().FullName);");
+            builder.AppendLine("throw new global::System.ObjectDisposedException(GetType().FullName);");
             builder.CloseBlock();
             builder.CloseBlock();
         }
