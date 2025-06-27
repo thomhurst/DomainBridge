@@ -5,5 +5,19 @@
         <Author>Tom Longhurst</Author>
         <PackageTags>appdomain;proxy;isolation;assembly;version-conflict</PackageTags>
         <IsPackable>false</IsPackable>
+        
+        <!-- Enable deterministic builds when running in CI -->
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+        <Deterministic Condition="'$(GITHUB_ACTIONS)' == 'true'">true</Deterministic>
+        
+        <!-- Source Link configuration -->
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
     </PropertyGroup>
+    
+    <ItemGroup Condition="'$(GITHUB_ACTIONS)' == 'true' AND '$(IsPackable)' != 'false'">
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    </ItemGroup>
 </Project>
