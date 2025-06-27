@@ -27,6 +27,7 @@ namespace DomainBridge.Tests
     public class KeywordParameterTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeHandlesReservedKeywordParameters()
         {
             // Arrange

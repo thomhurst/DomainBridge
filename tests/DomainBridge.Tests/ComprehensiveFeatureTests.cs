@@ -23,6 +23,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task StaticInstanceProperty_ReturnsValidBridge()
         {
             // Act
@@ -34,6 +35,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task MethodWrapping_WorksCorrectly()
         {
             // Arrange
@@ -47,6 +49,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task NestedTypeWrapping_CreatesCorrectBridge()
         {
             // Arrange
@@ -109,6 +112,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task IsolatedDomain_CreatesSuccessfully()
         {
             // Act
@@ -121,6 +125,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task IsolatedDomain_WithConfiguration_Works()
         {
             // Arrange

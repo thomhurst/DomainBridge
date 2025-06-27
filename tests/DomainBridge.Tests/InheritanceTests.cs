@@ -8,6 +8,7 @@ namespace DomainBridge.Tests
     public class InheritanceTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestDerivedServiceInheritsBaseMembers()
         {
             var service = DerivedServiceBridge.CreateIsolated();
@@ -44,6 +45,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestConcreteServiceInheritsAbstractMembers()
         {
             var service = ConcreteServiceBridge.CreateIsolated();
@@ -67,6 +69,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestInheritanceChainWithMultipleLevels()
         {
             // Test a deeper inheritance chain
@@ -92,7 +95,8 @@ namespace DomainBridge.Tests
             await Assert.That(grandChild.BaseProperty).IsEqualTo("Deep inheritance test");
         }
         
-        [Test] 
+        [Test]
+        [NotInParallel("StaticState")]
         public async Task TestVirtualMethodOverrideChain()
         {
             var service = DerivedServiceBridge.CreateIsolated();
@@ -109,6 +113,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestInheritedMemberAccessibility()
         {
             var service = DerivedServiceBridge.CreateIsolated();

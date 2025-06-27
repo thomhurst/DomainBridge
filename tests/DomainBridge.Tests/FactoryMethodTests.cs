@@ -38,6 +38,7 @@ namespace DomainBridge.Tests
     public class FactoryMethodTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task CanCreateInstanceUsingFactoryMethod()
         {
             // Act
@@ -50,6 +51,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task FactoryMethodWorksWithComplexInitialization()
         {
             // Create a more complex service that requires initialization

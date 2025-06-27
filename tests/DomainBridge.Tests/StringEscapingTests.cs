@@ -28,6 +28,7 @@ namespace DomainBridge.Tests
     public class StringEscapingTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeHandlesStringDefaultsWithQuotes()
         {
             // Arrange
@@ -43,7 +44,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
-        [DependsOn(nameof(BridgeHandlesStringDefaultsWithQuotes))]
+        [NotInParallel("StaticState")]
         public async Task BridgeHandlesStringDefaultsWithBackslashes()
         {
             // Arrange

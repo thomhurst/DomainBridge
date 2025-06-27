@@ -12,6 +12,7 @@ namespace DomainBridge.Tests
     public class EdgeCaseAndErrorTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task NullParameters_HandledCorrectly()
         {
             // Arrange
@@ -26,6 +27,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task DefaultParameters_WorkCorrectly()
         {
             // Arrange
@@ -43,6 +45,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task OverloadedMethods_ResolveCorrectly()
         {
             // Arrange
@@ -60,6 +63,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task GenericReturnTypes_WorkCorrectly()
         {
             // Arrange
@@ -75,6 +79,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public void VoidMethods_ExecuteCorrectly()
         {
             // Arrange
@@ -89,6 +94,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task PropertyAccess_WorksWithGetterAndSetter()
         {
             // Arrange
@@ -103,6 +109,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task ReadOnlyProperty_WorksCorrectly()
         {
             // Arrange
@@ -116,6 +123,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task LargeStringValues_HandleCorrectly()
         {
             // Arrange
@@ -130,6 +138,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task SpecialCharacters_PreservedInStrings()
         {
             // Arrange
@@ -144,6 +153,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task DateTime_SerializesCorrectly()
         {
             // Arrange
@@ -158,6 +168,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BooleanValues_WorkCorrectly()
         {
             // Arrange

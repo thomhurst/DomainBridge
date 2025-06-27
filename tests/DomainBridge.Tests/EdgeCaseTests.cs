@@ -121,6 +121,7 @@ namespace DomainBridge.Tests
         
         [Test]
         [Skip("Async methods cannot work across AppDomain boundaries - Tasks are not serializable")]
+        [NotInParallel("StaticState")]
         public void TestAsyncMethodsAcrossAppDomains_DocumentedLimitation()
         {
             // This test documents a known limitation: async methods cannot be called
@@ -143,6 +144,7 @@ namespace DomainBridge.Tests
         }
         
         [Test, Skip("Interface proxy support not yet implemented")]
+        [NotInParallel("StaticState")]
         public async Task TestInterfaceReturnTypes()
         {
             var service = ServiceWithInterfacesBridge.CreateIsolated();
@@ -183,6 +185,7 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestStaticFieldsDoNotPreventUnloading()
         {
             // Create and use a bridge

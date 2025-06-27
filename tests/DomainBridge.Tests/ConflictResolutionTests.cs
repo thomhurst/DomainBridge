@@ -93,6 +93,7 @@ namespace DomainBridge.Tests
     public class NestedTypeConflictTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task HandlesNestedTypesWithSameNames()
         {
             var order = OrderBridge.CreateIsolated();

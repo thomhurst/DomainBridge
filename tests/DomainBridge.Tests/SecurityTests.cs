@@ -13,6 +13,7 @@ namespace DomainBridge.Tests
     public class SecurityTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task IsolatedDomain_PreventsDirectAccess()
         {
             // Arrange
@@ -26,6 +27,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task ExceptionWrapping_DoesNotLeakInternalDetails()
         {
             // Arrange
@@ -44,6 +46,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task SerializationSecurity_RejectsUntrustedTypes()
         {
             // Arrange
@@ -57,6 +60,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task DomainIsolation_PreventsStaticFieldSharing()
         {
             // Arrange
@@ -77,6 +81,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public void AppDomainUnload_CleansUpResources()
         {
             // Arrange
@@ -89,6 +94,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task MethodAccess_RespectsPublicVisibility()
         {
             // Arrange

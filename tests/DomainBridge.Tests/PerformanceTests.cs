@@ -28,6 +28,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task MethodCalls_PerformWithinReasonableTime()
         {
             // Arrange
@@ -47,6 +48,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task LargeDataTransfer_HandlesCorrectly()
         {
             // Arrange
@@ -62,6 +64,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task ConcurrentAccess_HandlesMultipleThreads()
         {
             // Arrange

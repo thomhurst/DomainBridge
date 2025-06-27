@@ -7,6 +7,7 @@ namespace DomainBridge.Tests
     public class BasicBridgeTests
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeInstance_ReturnsNotNull()
         {
             // Act
@@ -17,6 +18,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeInstance_ReturnsSameInstance()
         {
             // Act
@@ -28,6 +30,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeMethod_ReturnsExpectedValue()
         {
             // Arrange
@@ -41,6 +44,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task BridgeMethod_ReturnsNestedBridge()
         {
             // Arrange
@@ -56,6 +60,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task CreateIsolated_WithConfig_Works()
         {
             // Arrange
@@ -74,11 +79,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [DependsOn(nameof(CreateIsolated_WithConfig_Works))]
-        [DependsOn(nameof(BridgeInstance_ReturnsNotNull))]
-        [DependsOn(nameof(BridgeInstance_ReturnsSameInstance))]
-        [DependsOn(nameof(BridgeMethod_ReturnsExpectedValue))]
-        [DependsOn(nameof(BridgeMethod_ReturnsNestedBridge))]
+        [NotInParallel("StaticState")]
         public void UnloadDomain_DoesNotThrow()
         {
             // Arrange - ensure domain is loaded

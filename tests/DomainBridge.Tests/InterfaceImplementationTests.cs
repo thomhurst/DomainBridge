@@ -108,6 +108,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
+        [NotInParallel("StaticState")]
         public async Task Isolated_Bridge_Should_Implement_Interfaces()
         {
             // Arrange & Act

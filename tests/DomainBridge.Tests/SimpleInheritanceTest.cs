@@ -11,10 +11,15 @@ namespace DomainBridge.Tests
     public class SimpleInheritanceTest
     {
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestBasicInheritance()
         {
             // Test DerivedService which inherits from BaseService
             var derived = DerivedServiceBridge.CreateIsolated();
+            
+            // Reset state to ensure test isolation
+            derived.BaseProperty = "Base";
+            derived.DerivedProperty = "Derived";
             
             // Test inherited property
             await Assert.That(derived.BaseProperty).IsEqualTo("Base");
@@ -32,10 +37,14 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestAbstractInheritance()
         {
             // Test ConcreteService which inherits from AbstractService
             var concrete = ConcreteServiceBridge.CreateIsolated();
+            
+            // Reset state to ensure test isolation
+            concrete.AbstractProperty = "Abstract";
             
             // Test inherited property from abstract base
             await Assert.That(concrete.AbstractProperty).IsEqualTo("Abstract");
@@ -50,10 +59,16 @@ namespace DomainBridge.Tests
         }
         
         [Test]
+        [NotInParallel("StaticState")]
         public async Task TestDeepInheritance()
         {
             // Test GrandChildService which has 3 levels of inheritance
             var grandChild = GrandChildServiceBridge.CreateIsolated();
+            
+            // Reset state to ensure test isolation
+            grandChild.BaseProperty = "Base";
+            grandChild.ChildProperty = "Child";
+            grandChild.GrandChildProperty = "GrandChild";
             
             // Test properties from all inheritance levels
             await Assert.That(grandChild.GrandChildProperty).IsEqualTo("GrandChild"); // Direct
