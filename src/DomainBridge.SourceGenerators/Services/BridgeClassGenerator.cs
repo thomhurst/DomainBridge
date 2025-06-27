@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using DomainBridge.SourceGenerators.Models;
@@ -160,12 +161,12 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     var paramType = GetTypeDisplayString(p.Type);
                     var defaultValue = p.HasDefaultValue ? $" = {FormatDefaultValue(p.DefaultValue)}" : "";
-                    return $"{paramType} {p.Name}{defaultValue}";
+                    return $"{paramType} {EscapeIdentifier(p.Name)}{defaultValue}";
                 }));
 
                 builder.OpenBlock($"public {returnType} {method.Name}({parameters})");
                 
-                var args = string.Join(", ", method.Parameters.Select(p => p.Name));
+                var args = string.Join(", ", method.Parameters.Select(p => EscapeIdentifier(p.Name)));
                 var methodCall = $"_instance.{method.Name}({args})";
 
                 if (method.ReturnType.SpecialType == SpecialType.System_Void)
@@ -288,6 +289,24 @@ namespace DomainBridge.SourceGenerators.Services
             if (value is string str) return $"\"{str}\"";
             if (value is bool b) return b ? "true" : "false";
             return value.ToString() ?? "null";
+        }
+
+        private string EscapeIdentifier(string identifier)
+        {
+            // List of C# reserved keywords that need escaping
+            var keywords = new HashSet<string>
+            {
+                "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char", "checked",
+                "class", "const", "continue", "decimal", "default", "delegate", "do", "double", "else", "enum",
+                "event", "explicit", "extern", "false", "finally", "fixed", "float", "for", "foreach", "goto",
+                "if", "implicit", "in", "int", "interface", "internal", "is", "lock", "long", "namespace",
+                "new", "null", "object", "operator", "out", "override", "params", "private", "protected", "public",
+                "readonly", "ref", "return", "sbyte", "sealed", "short", "sizeof", "stackalloc", "static", "string",
+                "struct", "switch", "this", "throw", "true", "try", "typeof", "uint", "ulong", "unchecked",
+                "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
+            };
+
+            return keywords.Contains(identifier) ? $"@{identifier}" : identifier;
         }
 
         private void GenerateEnsureIsolatedDomainMethod(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
