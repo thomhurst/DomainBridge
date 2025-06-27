@@ -20,8 +20,8 @@ namespace DomainBridge.Tests
             var service = new PerformanceTestService();
             
             // Act
-            var bridge1 = new PerformanceTestServiceBridge(service);
-            var bridge2 = new PerformanceTestServiceBridge(service);
+            var bridge1 = PerformanceTestServiceBridge.GetOrCreate(service);
+            var bridge2 = PerformanceTestServiceBridge.GetOrCreate(service);
             
             // Assert - Should reuse cached instances
             await Assert.That(bridge1).IsSameReferenceAs(bridge2);

@@ -86,7 +86,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock(classDeclaration);
             
             GenerateFields(builder);
-            GenerateConstructors(builder, bridgeInfo, typeModel);
+            GenerateConstructors(builder, bridgeInfo, typeModel, config);
             GenerateFactoryMethods(builder, bridgeInfo, typeModel, config);
             GenerateStaticInstanceProperty(builder, bridgeInfo, typeModel);
             GenerateMembers(builder, typeModel);
@@ -108,7 +108,8 @@ namespace DomainBridge.SourceGenerators.Services
         private void GenerateConstructors(
             CodeBuilder builder,
             BridgeTypeInfo bridgeInfo,
-            TypeModel typeModel)
+            TypeModel typeModel,
+            AttributeConfiguration? config = null)
         {
             // Constructor that takes the wrapped instance
             builder.AppendLine("/// <summary>");
@@ -124,14 +125,32 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 builder.OpenBlock($"public {bridgeInfo.BridgeClassName}()");
                 builder.AppendLine("// When created in isolated domain, create the target instance directly");
-                builder.AppendLine($"var targetType = typeof({typeModel.FullName});");
-                builder.AppendLine("var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
-                builder.OpenBlock("if (instanceProperty != null && instanceProperty.CanRead)");
-                builder.AppendLine("_instance = instanceProperty.GetValue(null);");
-                builder.CloseBlock();
-                builder.OpenBlock("else");
-                builder.AppendLine("_instance = Activator.CreateInstance(targetType);");
-                builder.CloseBlock();
+                
+                // Check if a factory method is configured
+                if (!string.IsNullOrEmpty(config?.FactoryMethod))
+                {
+                    builder.AppendLine($"// Using factory method: {config.FactoryMethod}");
+                    builder.AppendLine($"var bridgeType = typeof({bridgeInfo.BridgeClassName});");
+                    builder.AppendLine($"var factoryMethod = bridgeType.GetMethod(\"{config.FactoryMethod}\", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);");
+                    builder.OpenBlock("if (factoryMethod != null)");
+                    builder.AppendLine("_instance = factoryMethod.Invoke(null, null);");
+                    builder.CloseBlock();
+                    builder.OpenBlock("else");
+                    builder.AppendLine($"throw new global::System.InvalidOperationException(\"Factory method '{config.FactoryMethod}' not found on type {bridgeInfo.BridgeClassName}\");");
+                    builder.CloseBlock();
+                }
+                else
+                {
+                    builder.AppendLine($"var targetType = typeof({typeModel.FullName});");
+                    builder.AppendLine("var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
+                    builder.OpenBlock("if (instanceProperty != null && instanceProperty.CanRead)");
+                    builder.AppendLine("_instance = instanceProperty.GetValue(null);");
+                    builder.CloseBlock();
+                    builder.OpenBlock("else");
+                    builder.AppendLine("_instance = Activator.CreateInstance(targetType);");
+                    builder.CloseBlock();
+                }
+                
                 builder.CloseBlock();
                 builder.AppendLine();
             }
@@ -203,7 +222,21 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 builder.OpenBlock("get");
                 
-                if (_typeResolver.NeedsWrapping(property.Type))
+                // Check if property type is a dictionary with values that need wrapping
+                if (IsDictionary(property.Type, out var keyType, out var valueType) && _typeResolver.NeedsWrapping(valueType))
+                {
+                    builder.AppendLine($"var value = _instance.{property.Name};");
+                    builder.AppendLine("if (value == null) return null!;");
+                    GenerateDictionaryReturn(builder, property.Type, keyType, valueType, "value");
+                }
+                // Check if property type is a collection with elements that need wrapping
+                else if (IsCollection(property.Type, out var elementType) && _typeResolver.NeedsWrapping(elementType))
+                {
+                    builder.AppendLine($"var value = _instance.{property.Name};");
+                    builder.AppendLine("if (value == null) return null!;");
+                    GenerateCollectionReturn(builder, property.Type, elementType, "value");
+                }
+                else if (_typeResolver.NeedsWrapping(property.Type))
                 {
                     var bridgeInfo = GetBridgeInfo(property.Type);
                     builder.AppendLine("var value = _instance." + property.Name + ";");
@@ -221,7 +254,67 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 builder.OpenBlock("set");
                 
-                if (_typeResolver.NeedsWrapping(property.Type))
+                // Check if property type is a dictionary with values that need unwrapping
+                if (IsDictionary(property.Type, out var keyType, out var valueType) && _typeResolver.NeedsWrapping(valueType))
+                {
+                    builder.AppendLine("if (value == null)");
+                    builder.AppendLine("{");
+                    builder.AppendLine($"    _instance.{property.Name} = null;");
+                    builder.AppendLine("}");
+                    builder.AppendLine("else");
+                    builder.AppendLine("{");
+                    
+                    // Convert bridge dictionary back to original type
+                    var valueBridgeInfo = GetBridgeInfo(valueType);
+                    var originalKeyType = keyType.ToDisplayString();
+                    var originalValueType = valueType.ToDisplayString();
+                    
+                    // Ensure types are globally qualified (but not for built-in types)
+                    if (!originalKeyType.StartsWith("global::") && !IsBuiltInType(originalKeyType))
+                        originalKeyType = $"global::{originalKeyType}";
+                    if (!originalValueType.StartsWith("global::") && !IsBuiltInType(originalValueType))
+                        originalValueType = $"global::{originalValueType}";
+                    
+                    builder.AppendLine($"    var result = new global::System.Collections.Generic.Dictionary<{originalKeyType}, {originalValueType}>();");
+                    builder.AppendLine($"    foreach (var kvp in value)");
+                    builder.AppendLine($"    {{");
+                    builder.AppendLine($"        var bridgedValue = kvp.Value as global::{valueBridgeInfo.BridgeFullName};");
+                    builder.AppendLine($"        result[kvp.Key] = bridgedValue?._instance;");
+                    builder.AppendLine($"    }}");
+                    builder.AppendLine($"    _instance.{property.Name} = result;");
+                    
+                    builder.AppendLine("}");
+                }
+                // Check if property type is a collection with elements that need unwrapping
+                else if (IsCollection(property.Type, out var elementType) && _typeResolver.NeedsWrapping(elementType))
+                {
+                    builder.AppendLine("if (value == null)");
+                    builder.AppendLine("{");
+                    builder.AppendLine($"    _instance.{property.Name} = null;");
+                    builder.AppendLine("}");
+                    builder.AppendLine("else");
+                    builder.AppendLine("{");
+                    
+                    // Convert bridge collection back to original type
+                    builder.AppendLine($"    var __convertFunc = new global::System.Func<dynamic, dynamic>(item => item?._instance);");
+                    builder.AppendLine($"    var enumerable = (global::System.Collections.IEnumerable)value;");
+                    
+                    if (property.Type is IArrayTypeSymbol)
+                    {
+                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc).ToArray();");
+                    }
+                    else if (IsListType(property.Type))
+                    {
+                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc).ToList();");
+                    }
+                    else
+                    {
+                        builder.AppendLine($"    _instance.{property.Name} = enumerable.Cast<dynamic>().Select(__convertFunc);");
+                    }
+                    
+                    builder.AppendLine("}");
+                }
+                else if (_typeResolver.NeedsWrapping(property.Type))
                 {
                     builder.AppendLine($"_instance.{property.Name} = value?._instance;");
                 }
@@ -424,21 +517,40 @@ namespace DomainBridge.SourceGenerators.Services
         
         private void GenerateReturnStatement(CodeBuilder builder, ITypeSymbol returnType, string methodCall)
         {
-            // Check if return type needs wrapping
-            if (_typeResolver.NeedsWrapping(returnType))
+            // Check if return type is a dictionary that might need wrapping
+            if (IsDictionary(returnType, out var keyType, out var valueType))
             {
-                // Handle collections specially
-                if (IsCollection(returnType, out var elementType) && _typeResolver.NeedsWrapping(elementType))
+                if (_typeResolver.NeedsWrapping(valueType))
                 {
+                    // Dictionary with values that need wrapping
+                    GenerateDictionaryReturn(builder, returnType, keyType, valueType, methodCall);
+                }
+                else
+                {
+                    // Dictionary with values that don't need wrapping
+                    builder.AppendLine($"return {methodCall};");
+                }
+            }
+            // Check if return type is a collection that might need wrapping
+            else if (IsCollection(returnType, out var elementType))
+            {
+                if (_typeResolver.NeedsWrapping(elementType))
+                {
+                    // Collection with elements that need wrapping
                     GenerateCollectionReturn(builder, returnType, elementType, methodCall);
                 }
                 else
                 {
-                    // Single object wrapping
-                    var bridgeInfo = GetBridgeInfo(returnType);
-                    builder.AppendLine($"var result = {methodCall};");
-                    builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
+                    // Collection with elements that don't need wrapping
+                    builder.AppendLine($"return {methodCall};");
                 }
+            }
+            else if (_typeResolver.NeedsWrapping(returnType))
+            {
+                // Single object wrapping
+                var bridgeInfo = GetBridgeInfo(returnType);
+                builder.AppendLine($"var result = {methodCall};");
+                builder.AppendLine($"return result != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(result) : null!;");
             }
             else
             {
@@ -455,32 +567,67 @@ namespace DomainBridge.SourceGenerators.Services
             var bridgeInfo = GetBridgeInfo(elementType);
             
             // Check if we already have the result variable
-            if (!methodCall.Equals("result", StringComparison.Ordinal))
+            if (!methodCall.Equals("result", StringComparison.Ordinal) && !methodCall.Equals("value", StringComparison.Ordinal))
             {
                 builder.AppendLine($"var result = {methodCall};");
+                methodCall = "result";
             }
             
-            builder.AppendLine("if (result == null) return null!;");
+            builder.AppendLine($"if ({methodCall} == null) return null!;");
+            
+            // Create a function variable to avoid lambda with dynamic
+            var funcName = $"__bridgeFunc_{elementType.Name}";
+            builder.AppendLine($"var {funcName} = new global::System.Func<dynamic, global::{bridgeInfo.BridgeFullName}>(item => ");
+            builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            
+            // Cast to IEnumerable first to ensure Cast method is available
+            builder.AppendLine($"var enumerable = (global::System.Collections.IEnumerable){methodCall};");
             
             // Determine the collection type and generate appropriate wrapping
             if (collectionType is IArrayTypeSymbol)
             {
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
-                builder.AppendLine("    .ToArray();");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName}).ToArray();");
             }
             else if (IsListType(collectionType))
             {
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
-                builder.AppendLine("    .ToList();");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName}).ToList();");
             }
             else
             {
                 // Default to IEnumerable
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? {bridgeInfo.BridgeFullName}.GetOrCreate(item) : null);");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName});");
             }
+        }
+        
+        private void GenerateDictionaryReturn(
+            CodeBuilder builder,
+            ITypeSymbol dictionaryType,
+            ITypeSymbol keyType,
+            ITypeSymbol valueType,
+            string methodCall)
+        {
+            var valueBridgeInfo = GetBridgeInfo(valueType);
+            
+            // Check if we already have the result variable
+            if (!methodCall.Equals("result", StringComparison.Ordinal) && !methodCall.Equals("value", StringComparison.Ordinal))
+            {
+                builder.AppendLine($"var dict = {methodCall};");
+                methodCall = "dict";
+            }
+            
+            builder.AppendLine($"if ({methodCall} == null) return null!;");
+            
+            // Create the wrapped dictionary
+            var keyTypeName = _typeResolver.ResolveType(keyType);
+            var valueTypeName = _typeResolver.ResolveType(valueType);
+            
+            builder.AppendLine($"var result = new global::System.Collections.Generic.Dictionary<{keyTypeName}, {valueTypeName}>();");
+            builder.AppendLine($"foreach (var kvp in {methodCall})");
+            builder.AppendLine("{");
+            builder.AppendLine($"    var wrappedValue = kvp.Value != null ? global::{valueBridgeInfo.BridgeFullName}.GetOrCreate(kvp.Value) : null!;");
+            builder.AppendLine($"    result[kvp.Key] = wrappedValue;");
+            builder.AppendLine("}");
+            builder.AppendLine("return result;");
         }
         
         private string GenerateParameterList(IList<ParameterModel> parameters)
@@ -704,6 +851,28 @@ namespace DomainBridge.SourceGenerators.Services
             return false;
         }
         
+        private bool IsDictionary(ITypeSymbol type, out ITypeSymbol keyType, out ITypeSymbol valueType)
+        {
+            keyType = null!;
+            valueType = null!;
+            
+            if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            {
+                var name = namedType.ConstructedFrom?.Name ?? namedType.Name;
+                if (name == "Dictionary" || name == "IDictionary")
+                {
+                    if (namedType.TypeArguments.Length == 2)
+                    {
+                        keyType = namedType.TypeArguments[0];
+                        valueType = namedType.TypeArguments[1];
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
         private bool IsListType(ITypeSymbol type)
         {
             if (type is INamedTypeSymbol namedType)
@@ -796,24 +965,27 @@ namespace DomainBridge.SourceGenerators.Services
             var bridgeInfo = GetBridgeInfo(elementType);
             builder.AppendLine("if (result == null) return null!;");
             
+            // Create a function variable to avoid lambda with dynamic
+            var funcName = $"__bridgeFunc_{elementType.Name}";
+            builder.AppendLine($"var {funcName} = new global::System.Func<dynamic, global::{bridgeInfo.BridgeFullName}>(item => ");
+            builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null!);");
+            
+            // Cast to IEnumerable first to ensure Cast method is available
+            builder.AppendLine($"var enumerable = (global::System.Collections.IEnumerable)result;");
+            
             // Determine the collection type and generate appropriate wrapping
             if (collectionType is IArrayTypeSymbol)
             {
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
-                builder.AppendLine("    .ToArray();");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName}).ToArray();");
             }
             else if (IsListType(collectionType))
             {
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? global::{bridgeInfo.BridgeFullName}.GetOrCreate(item) : null)");
-                builder.AppendLine("    .ToList();");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName}).ToList();");
             }
             else
             {
                 // Default to IEnumerable
-                builder.AppendLine($"return result.Cast<dynamic>().Select(item => ");
-                builder.AppendLine($"    item != null ? {bridgeInfo.BridgeFullName}.GetOrCreate(item) : null);");
+                builder.AppendLine($"return enumerable.Cast<dynamic>().Select({funcName});");
             }
         }
         
@@ -823,6 +995,23 @@ namespace DomainBridge.SourceGenerators.Services
             if (value is string str) return $"@\"{str.Replace("\"", "\"\"")}\"";
             if (value is bool b) return b ? "true" : "false";
             return value.ToString() ?? "null";
+        }
+        
+        private bool IsBuiltInType(string typeName)
+        {
+            // Check for common built-in types that don't need global:: prefix
+            return typeName == "string" || 
+                   typeName == "int" || 
+                   typeName == "long" || 
+                   typeName == "double" || 
+                   typeName == "float" || 
+                   typeName == "bool" || 
+                   typeName == "byte" || 
+                   typeName == "short" || 
+                   typeName == "decimal" || 
+                   typeName == "char" ||
+                   typeName == "object" ||
+                   typeName == "dynamic";
         }
         
         private string EscapeIdentifier(string identifier)

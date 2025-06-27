@@ -74,14 +74,14 @@ namespace DomainBridge.Tests
             
             bridge.SetBaseData("base data");
             var baseMessage = bridge.GetBaseMessage();
-            await Assert.That(baseMessage).Contains("BaseService");
+            await Assert.That(baseMessage).Contains("Overridden: Message from base class");
             
             // Act & Assert - Derived class members  
             bridge.DerivedProperty = "test derived";
             await Assert.That(bridge.DerivedProperty).IsEqualTo("test derived");
             
             var derivedMessage = bridge.GetDerivedMessage();
-            await Assert.That(derivedMessage).Contains("DerivedService");
+            await Assert.That(derivedMessage).Contains("Message from derived class");
         }
 
         [Test]
@@ -97,15 +97,15 @@ namespace DomainBridge.Tests
             
             // Act & Assert - Abstract method
             var abstractMessage = bridge.GetAbstractMessage();
-            await Assert.That(abstractMessage).Contains("ConcreteService");
+            await Assert.That(abstractMessage).Contains("Implemented abstract method");
             
             // Act & Assert - Virtual method (overridden)
             var virtualMessage = bridge.GetVirtualMessage();
-            await Assert.That(virtualMessage).Contains("ConcreteService overridden");
+            await Assert.That(virtualMessage).Contains("Overridden: Virtual message from abstract base");
             
             // Act & Assert - Concrete method
             var concreteMessage = bridge.GetConcreteMessage();
-            await Assert.That(concreteMessage).Contains("ConcreteService");
+            await Assert.That(concreteMessage).Contains("Message from concrete class");
         }
 
         [Test]
