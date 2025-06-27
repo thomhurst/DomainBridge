@@ -102,8 +102,13 @@ namespace DomainBridge.Tests
             var invoice = InvoiceBridge.CreateIsolated();
             var invoiceItem = invoice.GetItem();
             await Assert.That(invoiceItem.Name).IsEqualTo("InvoiceItem");
-            
-            // Clean up
+        }
+
+        [Test]
+        [DependsOn(nameof(HandlesNestedTypesWithSameNames))]
+        public void Cleanup_UnloadDomains()
+        {
+            // Unload all domains used in this test class
             OrderBridge.UnloadDomain();
             InvoiceBridge.UnloadDomain();
         }

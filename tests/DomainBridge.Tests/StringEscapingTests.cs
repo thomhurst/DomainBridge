@@ -40,9 +40,6 @@ namespace DomainBridge.Tests
             // Assert
             await Assert.That(resultDefault).IsEqualTo("Processed: Hello \"World\"");
             await Assert.That(resultCustom).IsEqualTo("Processed: Custom \"Value\"");
-            
-            // Cleanup
-            StringServiceBridge.UnloadDomain();
         }
         
         [Test]
@@ -59,8 +56,14 @@ namespace DomainBridge.Tests
             // Assert
             await Assert.That(resultDefault).IsEqualTo(@"Path: Some\Path\With\Backslashes");
             await Assert.That(resultCustom).IsEqualTo(@"Path: Another\Path");
-            
-            // Cleanup
+        }
+
+        [Test]
+        [DependsOn(nameof(BridgeHandlesStringDefaultsWithQuotes))]
+        [DependsOn(nameof(BridgeHandlesStringDefaultsWithBackslashes))]
+        public void Cleanup_UnloadDomains()
+        {
+            // Unload all domains used in this test class
             StringServiceBridge.UnloadDomain();
         }
     }

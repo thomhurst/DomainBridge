@@ -111,6 +111,18 @@ namespace DomainBridge.Tests
             // Assert - Memory increase should be reasonable (less than 10MB)
             await Assert.That(memoryIncrease).IsLessThan(10 * 1024 * 1024);
         }
+
+        [Test]
+        [DependsOn(nameof(BridgeInstanceCache_ReusesInstances))]
+        [DependsOn(nameof(MethodCalls_PerformWithinReasonableTime))]
+        [DependsOn(nameof(LargeDataTransfer_HandlesCorrectly))]
+        [DependsOn(nameof(ConcurrentAccess_HandlesMultipleThreads))]
+        [DependsOn(nameof(MemoryUsage_DoesNotLeakWithManyInstances))]
+        public void Cleanup_UnloadDomains()
+        {
+            // Unload all domains used in this test class
+            PerformanceTestServiceBridge.UnloadDomain();
+        }
     }
 
     public class PerformanceTestService

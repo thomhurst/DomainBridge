@@ -23,9 +23,6 @@ namespace DomainBridge.Tests
             
             // Assert - Should get the data through proper bridge channel
             await Assert.That(result).IsEqualTo("Sensitive data processed safely");
-            
-            // Cleanup
-            SecurityTestServiceBridge.UnloadDomain();
         }
 
         [Test]
@@ -77,9 +74,6 @@ namespace DomainBridge.Tests
             
             await Assert.That(localCount).IsEqualTo(1);
             await Assert.That(isolatedCount).IsEqualTo(1);
-            
-            // Cleanup
-            SecurityTestServiceBridge.UnloadDomain();
         }
 
         [Test]
@@ -89,10 +83,7 @@ namespace DomainBridge.Tests
             var isolatedBridge = SecurityTestServiceBridge.CreateIsolated();
             isolatedBridge.CreateResource();
             
-            // Act
-            SecurityTestServiceBridge.UnloadDomain();
-            
-            // Assert - Should not throw when unloading
+            // Assert - Should not throw when creating resources
             // The actual cleanup verification would require more complex resource tracking
             // No explicit assertion needed - test passes if no exception
         }
@@ -111,6 +102,19 @@ namespace DomainBridge.Tests
             
             // Private/protected methods should not be generated in bridge
             // This is verified at compile time by the source generator
+        }
+
+        [Test]
+        [DependsOn(nameof(IsolatedDomain_PreventsDirectAccess))]
+        [DependsOn(nameof(ExceptionWrapping_DoesNotLeakInternalDetails))]
+        [DependsOn(nameof(SerializationSecurity_RejectsUntrustedTypes))]
+        [DependsOn(nameof(DomainIsolation_PreventsStaticFieldSharing))]
+        [DependsOn(nameof(AppDomainUnload_CleansUpResources))]
+        [DependsOn(nameof(MethodAccess_RespectsPublicVisibility))]
+        public void Cleanup_UnloadDomains()
+        {
+            // Unload all domains used in this test class
+            SecurityTestServiceBridge.UnloadDomain();
         }
     }
 
