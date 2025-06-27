@@ -2,13 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <PackageId>DomainBridge.Attributes</PackageId>
-    <Authors>DomainBridge Contributors</Authors>
+    <IsPackable>true</IsPackable>
     <Description>Attributes for DomainBridge source generator</Description>
-    <PackageTags>appdomain;proxy;isolation;source-generator</PackageTags>
   </PropertyGroup>
 
 </Project>

@@ -11,7 +11,9 @@ namespace DomainBridge.Runtime
     /// </summary>
     public class AssemblyResolver : MarshalByRefObject
     {
-        private readonly List<string> _searchPaths = new List<string>();
+        private readonly List<string> _searchPaths =
+        [
+        ];
 
         public AssemblyResolver()
         {

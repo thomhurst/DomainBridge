@@ -240,7 +240,9 @@ namespace DomainBridge.SourceGenerators
 
         private class SyntaxReceiver : ISyntaxReceiver
         {
-            public List<ClassDeclarationSyntax> CandidateClasses { get; } = new List<ClassDeclarationSyntax>();
+            public List<ClassDeclarationSyntax> CandidateClasses { get; } =
+            [
+            ];
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {

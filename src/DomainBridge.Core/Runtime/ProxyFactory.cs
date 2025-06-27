@@ -57,7 +57,7 @@ namespace DomainBridge.Runtime
             }
         }
         
-        public override object InitializeLifetimeService()
+        public override object? InitializeLifetimeService()
         {
             return null; // Infinite lifetime
         }

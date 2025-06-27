@@ -2,9 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
+    <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     
     <!-- Source generator development settings -->
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
@@ -13,11 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
-    <PackageReference Include="xunit" Version="2.4.1" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <PackageReference Include="TUnit" Version="0.25.21" />
   </ItemGroup>
 
   <ItemGroup>

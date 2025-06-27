@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Source", "Source", "{8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Core", "src\DomainBridge.Core\DomainBridge.Core.csproj", "{1A2B3C4D-5E6F-7A8B-9C0D-1E2F3A4B5C6D}"
 EndProject
@@ -10,13 +10,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.SourceGenerato
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Attributes", "src\DomainBridge.Attributes\DomainBridge.Attributes.csproj", "{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9C6D5E4F-3B2A-1C9D-8E7F-6A5B4C3D2E1A}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{9C6D5E4F-3B2A-1C9D-8E7F-6A5B4C3D2E1A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Tests", "tests\DomainBridge.Tests\DomainBridge.Tests.csproj", "{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DomainBridge.Sample", "samples\DomainBridge.Sample\DomainBridge.Sample.csproj", "{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Pipeline", "Pipeline", "{B9D6B408-CB5E-4B11-8CFB-B742E0C8769E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DomainBridge.Pipeline", "src\DomainBridge.Pipeline\DomainBridge.Pipeline.csproj", "{3F9864B2-31B1-4D45-B8AA-62A42C788564}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -44,6 +48,10 @@ Global
 		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3F9864B2-31B1-4D45-B8AA-62A42C788564}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3F9864B2-31B1-4D45-B8AA-62A42C788564}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3F9864B2-31B1-4D45-B8AA-62A42C788564}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3F9864B2-31B1-4D45-B8AA-62A42C788564}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -54,5 +62,6 @@ Global
 		{3C4D5E6F-7A8B-9C0D-1E2F-3A4B5C6D7E8F} = {8B5E5A1C-A8F4-4B5C-9D3C-7E8A5B4C3D2E}
 		{4D5E6F7A-8B9C-0D1E-2F3A-4B5C6D7E8F9A} = {9C6D5E4F-3B2A-1C9D-8E7F-6A5B4C3D2E1A}
 		{6F7A8B9C-0D1E-2F3A-4B5C-6D7E8F9A0B1C} = {5E6F7A8B-9C0D-1E2F-3A4B-5C6D7E8F9A0B}
+		{3F9864B2-31B1-4D45-B8AA-62A42C788564} = {B9D6B408-CB5E-4B11-8CFB-B742E0C8769E}
 	EndGlobalSection
 EndGlobal

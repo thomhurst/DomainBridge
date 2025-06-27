@@ -1,79 +1,79 @@
 using System;
-using Xunit;
 using DomainBridge;
+using System.Threading.Tasks;
 
 namespace DomainBridge.Tests
 {
     public class BasicBridgeTests
     {
-        [Fact]
-        public void BridgeInstance_ReturnsNotNull()
+        [Test]
+        public async Task BridgeInstance_ReturnsNotNull()
         {
             // Act
             var app = TestApplicationBridge.Instance;
-            
+
             // Assert
-            Assert.NotNull(app);
+            await Assert.That(app).IsNotNull();
         }
-        
-        [Fact]
-        public void BridgeInstance_ReturnsSameInstance()
+
+        [Test]
+        public async Task BridgeInstance_ReturnsSameInstance()
         {
             // Act
             var app1 = TestApplicationBridge.Instance;
             var app2 = TestApplicationBridge.Instance;
-            
+
             // Assert
-            Assert.Same(app1, app2);
+            await Assert.That(app1).IsSameReferenceAs(app2);
         }
-        
-        [Fact]
-        public void BridgeMethod_ReturnsExpectedValue()
+
+        [Test]
+        public async Task BridgeMethod_ReturnsExpectedValue()
         {
             // Arrange
             var app = TestApplicationBridge.Instance;
-            
+
             // Act
             var message = app.GetMessage();
-            
+
             // Assert
-            Assert.Equal("Hello from TestApplication", message);
+            await Assert.That(message).IsEqualTo("Hello from TestApplication");
         }
-        
-        [Fact]
-        public void BridgeMethod_ReturnsNestedBridge()
+
+        [Test]
+        public async Task BridgeMethod_ReturnsNestedBridge()
         {
             // Arrange
             var app = TestApplicationBridge.Instance;
-            
+
             // Act
             var doc = app.GetDocument("test-id");
-            
+
             // Assert
-            Assert.NotNull(doc);
-            Assert.Equal("test-id", doc.Id);
-            Assert.Equal("Test Doc", doc.Name);
+            await Assert.That(doc).IsNotNull();
+            await Assert.That(doc.Id).IsEqualTo("test-id");
+            await Assert.That(doc.Name).IsEqualTo("Test Doc");
         }
-        
-        [Fact]
-        public void CreateIsolated_WithConfig_Works()
+
+        [Test]
+        public async Task CreateIsolated_WithConfig_Works()
         {
             // Arrange
             var config = new DomainConfiguration
             {
                 EnableShadowCopy = true
             };
-            
+
             // Act
             var app = TestApplicationBridge.CreateIsolated(config);
-            
+
             // Assert
-            Assert.NotNull(app);
+            await Assert.That(app).IsNotNull();
             var message = app.GetMessage();
-            Assert.Equal("Hello from TestApplication", message);
+            await Assert.That(message).IsEqualTo("Hello from TestApplication");
         }
-        
-        [Fact]
+
+        [Test]
         public void UnloadDomain_DoesNotThrow()
         {
             // Arrange - ensure domain is loaded

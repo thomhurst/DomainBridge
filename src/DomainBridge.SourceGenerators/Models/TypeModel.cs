@@ -10,9 +10,15 @@ namespace DomainBridge.SourceGenerators.Models
         public string Name { get; }
         public string Namespace { get; }
         public string FullName { get; }
-        public List<PropertyModel> Properties { get; } = new List<PropertyModel>();
-        public List<MethodModel> Methods { get; } = new List<MethodModel>();
-        public List<EventModel> Events { get; } = new List<EventModel>();
+        public List<PropertyModel> Properties { get; } =
+        [
+        ];
+        public List<MethodModel> Methods { get; } =
+        [
+        ];
+        public List<EventModel> Events { get; } =
+        [
+        ];
         public bool IsProcessed { get; set; }
 
         public TypeModel(INamedTypeSymbol symbol)
@@ -46,7 +52,9 @@ namespace DomainBridge.SourceGenerators.Models
     {
         public string Name { get; }
         public ITypeSymbol ReturnType { get; }
-        public List<ParameterModel> Parameters { get; } = new List<ParameterModel>();
+        public List<ParameterModel> Parameters { get; } =
+        [
+        ];
         public bool IsIgnored { get; }
 
         public MethodModel(string name, ITypeSymbol returnType, bool isIgnored = false)
