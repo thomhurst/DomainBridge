@@ -6,13 +6,6 @@ namespace DomainBridge.SourceGenerators.Services
 {
     internal class BridgeClassGenerator
     {
-        private readonly TypeNameResolver _typeNameResolver;
-
-        public BridgeClassGenerator(TypeNameResolver typeNameResolver)
-        {
-            _typeNameResolver = typeNameResolver;
-        }
-
         public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Generate the partial class implementation
@@ -22,7 +15,6 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
             GenerateConstructors(builder, bridgeClassName, targetModel, config);
             GenerateFactoryMethods(builder, bridgeClassName, targetModel, config);
-            GenerateWrapInstanceMethod(builder);
             GenerateDelegatingMembers(builder, targetModel);
             GenerateDisposalMethod(builder, targetModel);
 
@@ -35,7 +27,6 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("private static AppDomain? _isolatedDomain;");
             builder.AppendLine("private static dynamic? _remoteProxy;");
             builder.AppendLine("private readonly dynamic _instance;");
-            builder.AppendLine("private static readonly ConcurrentDictionary<Type, System.Reflection.ConstructorInfo> _constructorCache = new ConcurrentDictionary<Type, System.Reflection.ConstructorInfo>();");
             builder.AppendLine();
         }
 
@@ -134,59 +125,19 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine();
         }
 
-        private void GenerateWrapInstanceMethod(CodeBuilder builder)
-        {
-            // Helper method to wrap instances in their bridge classes
-            builder.OpenBlock("private static T WrapInstance<T>(dynamic instance) where T : class");
-            builder.AppendLine("if (instance == null) return null;");
-            builder.AppendLine();
-            builder.AppendLine("var bridgeType = typeof(T);");
-            builder.AppendLine();
-            builder.AppendLine("// Get or cache the constructor");
-            builder.AppendLine("var constructor = _constructorCache.GetOrAdd(bridgeType, t =>");
-            builder.AppendLine("{");
-            builder.AppendLine("    // Look for internal constructor that takes dynamic/object parameter");
-            builder.AppendLine("    return t.GetConstructor(");
-            builder.AppendLine("        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance,");
-            builder.AppendLine("        null,");
-            builder.AppendLine("        new[] { typeof(object) },");
-            builder.AppendLine("        null);");
-            builder.AppendLine("});");
-            builder.AppendLine();
-            builder.AppendLine("if (constructor == null)");
-            builder.OpenBlock("");
-            builder.AppendLine("// This shouldn't happen if the source generator is working correctly");
-            builder.AppendLine("throw new InvalidOperationException($\"Bridge type {bridgeType.Name} must have a constructor that takes a dynamic/object parameter.\");");
-            builder.CloseBlock();
-            builder.AppendLine();
-            builder.AppendLine("return (T)constructor.Invoke(new object[] { instance });");
-            builder.CloseBlock();
-            builder.AppendLine();
-        }
-
         private void GenerateDelegatingMembers(CodeBuilder builder, TypeModel targetModel)
         {
             // Generate properties
             foreach (var property in targetModel.Properties.Where(p => !p.IsIgnored))
             {
-                var propertyType = _typeNameResolver.GetProxyTypeName(property.Type);
+                var propertyType = GetTypeDisplayString(property.Type);
                 
                 builder.OpenBlock($"public {propertyType} {property.Name}");
 
                 if (property.HasGetter)
                 {
                     builder.OpenBlock("get");
-                    if (_typeNameResolver.IsComplexType(property.Type))
-                    {
-                        // Need to wrap complex return types
-                        var proxyTypeName = _typeNameResolver.GetProxyTypeName(property.Type);
-                        builder.AppendLine($"var value = _instance.{property.Name};");
-                        builder.AppendLine($"return value == null ? null : WrapInstance<{proxyTypeName}>(value);");
-                    }
-                    else
-                    {
-                        builder.AppendLine($"return _instance.{property.Name};");
-                    }
+                    builder.AppendLine($"return _instance.{property.Name};");
                     builder.CloseBlock();
                 }
 
@@ -204,10 +155,10 @@ namespace DomainBridge.SourceGenerators.Services
             // Generate methods
             foreach (var method in targetModel.Methods.Where(m => !m.IsIgnored))
             {
-                var returnType = _typeNameResolver.GetProxyTypeName(method.ReturnType);
+                var returnType = GetTypeDisplayString(method.ReturnType);
                 var parameters = string.Join(", ", method.Parameters.Select(p =>
                 {
-                    var paramType = _typeNameResolver.GetProxyTypeName(p.Type);
+                    var paramType = GetTypeDisplayString(p.Type);
                     var defaultValue = p.HasDefaultValue ? $" = {FormatDefaultValue(p.DefaultValue)}" : "";
                     return $"{paramType} {p.Name}{defaultValue}";
                 }));
@@ -221,12 +172,6 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     builder.AppendLine($"{methodCall};");
                 }
-                else if (_typeNameResolver.IsComplexType(method.ReturnType))
-                {
-                    var proxyTypeName = _typeNameResolver.GetProxyTypeName(method.ReturnType);
-                    builder.AppendLine($"var result = {methodCall};");
-                    builder.AppendLine($"return result == null ? null : WrapInstance<{proxyTypeName}>(result);");
-                }
                 else
                 {
                     builder.AppendLine($"return {methodCall};");
@@ -236,10 +181,10 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine();
             }
 
-            // Generate events (simplified for now)
+            // Generate events
             foreach (var evt in targetModel.Events.Where(e => !e.IsIgnored))
             {
-                var eventType = _typeNameResolver.GetProxyTypeName(evt.Type);
+                var eventType = GetTypeDisplayString(evt.Type);
                 builder.AppendLine($"public event {eventType} {evt.Name}");
                 builder.OpenBlock("");
                 builder.AppendLine($"add {{ _instance.{evt.Name} += value; }}");
@@ -279,6 +224,62 @@ namespace DomainBridge.SourceGenerators.Services
             builder.CloseBlock();
             builder.CloseBlock();
             builder.CloseBlock();
+        }
+
+        private string GetTypeDisplayString(ITypeSymbol type)
+        {
+            // For now, we'll use dynamic for all non-primitive types to let AppDomain handle marshaling
+            if (type.SpecialType != SpecialType.None && type.SpecialType != SpecialType.System_Object)
+            {
+                return type.ToDisplayString();
+            }
+
+            if (type is IArrayTypeSymbol)
+            {
+                return "dynamic";
+            }
+
+            if (type is INamedTypeSymbol namedType)
+            {
+                // Keep generic collections with their type arguments
+                if (IsGenericCollection(namedType))
+                {
+                    return type.ToDisplayString();
+                }
+
+                // For complex types, use dynamic to allow cross-domain calls
+                if (IsComplexType(type))
+                {
+                    return "dynamic";
+                }
+            }
+
+            return type.ToDisplayString();
+        }
+
+        private bool IsComplexType(ITypeSymbol type)
+        {
+            if (type.SpecialType != SpecialType.None)
+                return false;
+
+            if (type.TypeKind == TypeKind.Enum)
+                return false;
+
+            if (type.ContainingAssembly?.Name.StartsWith("System") == true)
+                return false;
+
+            if (type.TypeKind == TypeKind.Interface)
+                return false;
+
+            return type is INamedTypeSymbol && type.TypeKind == TypeKind.Class;
+        }
+
+        private bool IsGenericCollection(INamedTypeSymbol type)
+        {
+            var name = type.Name;
+            return (name == "List" || name == "IList" || name == "IEnumerable" ||
+                    name == "ICollection" || name == "HashSet" || name == "ISet") &&
+                   type.TypeArguments.Length == 1;
         }
 
         private string FormatDefaultValue(object? value)

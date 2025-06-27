@@ -6,13 +6,14 @@ using TUnit.Core;
 
 namespace DomainBridge.Tests.ConflictScenarios
 {
-    // These tests demonstrate the global conflict resolution in the source generator.
-    // When multiple bridge classes reference types with the same names (even from 
-    // different namespaces), the generator automatically resolves naming conflicts
-    // by appending namespace prefixes or counters to ensure unique file names.
+    // These tests demonstrate that the simplified source generator no longer needs
+    // to handle naming conflicts. Since we only generate bridge classes for types
+    // explicitly marked with [DomainBridge], and all return types are dynamic,
+    // there's no need for nested type generation or conflict resolution.
     // Scenario 1: Same type names in different namespaces
     namespace ScenarioA
     {
+        [Serializable]
         public class Result
         {
             public string Value { get; set; } = "Result from A";
@@ -26,6 +27,7 @@ namespace DomainBridge.Tests.ConflictScenarios
     
     namespace ScenarioB
     {
+        [Serializable]
         public class Result
         {
             public string Value { get; set; } = "Result from B";
@@ -58,11 +60,11 @@ namespace DomainBridge.Tests
             
             var serviceA = ConflictScenarios.ServiceABridge.CreateIsolated();
             var resultA = serviceA.GetResult();
-            await Assert.That(resultA.Value).IsEqualTo("Result from A");
+            await Assert.That((object)resultA.Value).IsEqualTo("Result from A");
             
             var serviceB = ConflictScenarios.ServiceBBridge.CreateIsolated();
             var resultB = serviceB.GetResult();
-            await Assert.That(resultB.Value).IsEqualTo("Result from B");
+            await Assert.That((object)resultB.Value).IsEqualTo("Result from B");
             
             // Clean up
             ConflictScenarios.ServiceABridge.UnloadDomain();
@@ -73,6 +75,7 @@ namespace DomainBridge.Tests
     // Scenario 2: Nested classes with same names
     public class Order
     {
+        [Serializable]
         public class Item
         {
             public string Name { get; set; } = "OrderItem";
@@ -83,6 +86,7 @@ namespace DomainBridge.Tests
     
     public class Invoice
     {
+        [Serializable]
         public class Item
         {
             public string Name { get; set; } = "InvoiceItem";
@@ -104,11 +108,11 @@ namespace DomainBridge.Tests
         {
             var order = OrderBridge.CreateIsolated();
             var orderItem = order.GetItem();
-            await Assert.That(orderItem.Name).IsEqualTo("OrderItem");
+            await Assert.That((object)orderItem.Name).IsEqualTo("OrderItem");
             
             var invoice = InvoiceBridge.CreateIsolated();
             var invoiceItem = invoice.GetItem();
-            await Assert.That(invoiceItem.Name).IsEqualTo("InvoiceItem");
+            await Assert.That((object)invoiceItem.Name).IsEqualTo("InvoiceItem");
             
             // Clean up
             OrderBridge.UnloadDomain();

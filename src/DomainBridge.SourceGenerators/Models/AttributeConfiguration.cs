@@ -7,7 +7,6 @@ namespace DomainBridge.SourceGenerators.Models
         public string? ConfigurationFile { get; set; }
         public bool EnableShadowCopy { get; set; }
         public string? AssemblySearchPaths { get; set; }
-        public bool IncludeNestedTypes { get; set; } = true;
         public string? FactoryMethod { get; set; }
     }
 }
