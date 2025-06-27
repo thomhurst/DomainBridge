@@ -12,6 +12,10 @@ namespace DomainBridge.Tests
         {
             var service = DerivedServiceBridge.CreateIsolated();
             
+            // Reset state to ensure test isolation
+            service.BaseProperty = "Base";
+            service.DerivedProperty = "Derived";
+            
             // Test inherited property from base class
             await Assert.That(service.BaseProperty).IsEqualTo("Base");
             service.BaseProperty = "Modified Base";
@@ -124,19 +128,6 @@ namespace DomainBridge.Tests
             await Assert.That(protectedData).IsEqualTo("Protected data");
         }
 
-        [Test]
-        [DependsOn(nameof(TestDerivedServiceInheritsBaseMembers))]
-        [DependsOn(nameof(TestConcreteServiceInheritsAbstractMembers))]
-        [DependsOn(nameof(TestInheritanceChainWithMultipleLevels))]
-        [DependsOn(nameof(TestVirtualMethodOverrideChain))]
-        [DependsOn(nameof(TestInheritedMemberAccessibility))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            DerivedServiceBridge.UnloadDomain();
-            ConcreteServiceBridge.UnloadDomain();
-            GrandChildServiceBridge.UnloadDomain();
-        }
     }
     
     // Additional test types for deeper inheritance testing

@@ -124,16 +124,5 @@ namespace DomainBridge.Tests
             }
         }
 
-        [Test]
-        [DependsOn(nameof(Bridge_Should_Implement_Target_Interfaces))]
-        [DependsOn(nameof(Bridge_Should_Delegate_Interface_Methods))]
-        [DependsOn(nameof(Bridge_Should_Handle_Interface_Events))]
-        [DependsOn(nameof(Bridge_Should_Work_With_Multiple_Interfaces))]
-        [DependsOn(nameof(Isolated_Bridge_Should_Implement_Interfaces))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            ExampleServiceBridge.UnloadDomain();
-        }
     }
 }

@@ -61,15 +61,6 @@ namespace DomainBridge.Tests
             await Assert.That(bridge.GetConfiguration()).Contains("Initialized");
         }
 
-        [Test]
-        [DependsOn(nameof(CanCreateInstanceUsingFactoryMethod))]
-        [DependsOn(nameof(FactoryMethodWorksWithComplexInitialization))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            ServiceWithConstructorArgsBridge.UnloadDomain();
-            ComplexServiceBridge.UnloadDomain();
-        }
     }
     
     // Complex service requiring initialization

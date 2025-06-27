@@ -200,27 +200,6 @@ namespace DomainBridge.Tests
             await Assert.That(documentBridge.Id).IsEqualTo("async-doc");
         }
 
-        [Test]
-        [DependsOn(nameof(BasicBridge_CreatesInstance))]
-        [DependsOn(nameof(StaticInstanceProperty_ReturnsValidBridge))]
-        [DependsOn(nameof(MethodWrapping_WorksCorrectly))]
-        [DependsOn(nameof(NestedTypeWrapping_CreatesCorrectBridge))]
-        [DependsOn(nameof(InheritanceBridge_IncludesBaseMembers))]
-        [DependsOn(nameof(AbstractImplementation_IncludesAbstractMembers))]
-        [DependsOn(nameof(IsolatedDomain_CreatesSuccessfully))]
-        [DependsOn(nameof(IsolatedDomain_WithConfiguration_Works))]
-        [DependsOn(nameof(CollectionWrapping_HandlesListReturnTypes))]
-        [DependsOn(nameof(ExceptionWrapping_HandlesNonSerializableExceptions))]
-        [DependsOn(nameof(AsyncMethod_ReturnsTaskCorrectly))]
-        [DependsOn(nameof(AsyncMethod_WithBridgeReturnType_WrapsCorrectly))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            TestApplicationBridge.UnloadDomain();
-            CollectionTestServiceBridge.UnloadDomain();
-            ErrorTestServiceBridge.UnloadDomain();
-            AsyncTestServiceBridge.UnloadDomain();
-        }
     }
 
     // Test service classes

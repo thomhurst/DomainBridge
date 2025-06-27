@@ -172,23 +172,6 @@ namespace DomainBridge.Tests
             await Assert.That(falseResult).IsTrue();
         }
 
-        [Test]
-        [DependsOn(nameof(NullParameters_HandledCorrectly))]
-        [DependsOn(nameof(DefaultParameters_WorkCorrectly))]
-        [DependsOn(nameof(OverloadedMethods_ResolveCorrectly))]
-        [DependsOn(nameof(GenericReturnTypes_WorkCorrectly))]
-        [DependsOn(nameof(VoidMethods_ExecuteCorrectly))]
-        [DependsOn(nameof(PropertyAccess_WorksWithGetterAndSetter))]
-        [DependsOn(nameof(ReadOnlyProperty_WorksCorrectly))]
-        [DependsOn(nameof(LargeStringValues_HandleCorrectly))]
-        [DependsOn(nameof(SpecialCharacters_PreservedInStrings))]
-        [DependsOn(nameof(DateTime_SerializesCorrectly))]
-        [DependsOn(nameof(BooleanValues_WorkCorrectly))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            EdgeCaseTestServiceBridge.UnloadDomain();
-        }
     }
 
     public class EdgeCaseTestService

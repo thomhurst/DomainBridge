@@ -43,12 +43,5 @@ namespace DomainBridge.Tests
         // static methods or the target object is MarshalByRefObject. This is a fundamental
         // limitation of .NET AppDomains, not specific to DomainBridge.
 
-        [Test]
-        [DependsOn(nameof(BridgeHandlesReservedKeywordParameters))]
-        public void Cleanup_UnloadDomains()
-        {
-            // Unload all domains used in this test class
-            EventServiceBridge.UnloadDomain();
-        }
     }
 }
