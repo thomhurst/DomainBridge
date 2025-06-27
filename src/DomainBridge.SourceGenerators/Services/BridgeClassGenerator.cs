@@ -10,7 +10,7 @@ namespace DomainBridge.SourceGenerators.Services
         public void Generate(CodeBuilder builder, string bridgeClassName, TypeModel targetModel, AttributeConfiguration? config)
         {
             // Generate the partial class implementation
-            var classDeclaration = $"public partial class {bridgeClassName} : MarshalByRefObject";
+            var classDeclaration = $"public partial class {bridgeClassName} : MarshalByRefObject, IDisposable";
             
             // Add interfaces if any
             if (targetModel.Interfaces.Any())
@@ -24,19 +24,18 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateFields(builder);
             GenerateStaticInstance(builder, bridgeClassName, targetModel);
             GenerateConstructors(builder, bridgeClassName, targetModel, config);
-            GenerateFactoryMethods(builder, bridgeClassName, targetModel, config);
+            GenerateCreateMethods(builder, bridgeClassName, targetModel);
             GenerateDelegatingMembers(builder, targetModel);
-            GenerateDisposalMethod(builder, targetModel);
+            GenerateDisposalImplementation(builder);
 
             builder.CloseBlock();
         }
 
         private void GenerateFields(CodeBuilder builder)
         {
-            builder.AppendLine("private static readonly object _lock = new object();");
-            builder.AppendLine("private static AppDomain? _isolatedDomain;");
-            builder.AppendLine("private static dynamic? _remoteProxy;");
+            builder.AppendLine("private readonly AppDomain _appDomain;");
             builder.AppendLine("private readonly dynamic _instance;");
+            builder.AppendLine("private bool _disposed;");
             builder.AppendLine();
         }
 
@@ -49,18 +48,14 @@ namespace DomainBridge.SourceGenerators.Services
 
             if (hasStaticInstance)
             {
-                builder.AppendLine("private static " + className + "? _singletonInstance;");
-                builder.AppendLine();
-                builder.OpenBlock("public static " + className + " Instance");
+                builder.AppendLine("/// <summary>");
+                builder.AppendLine($"/// Gets a bridge around the static Instance property of {targetModel.Symbol.Name}");
+                builder.AppendLine("/// </summary>");
+                builder.OpenBlock($"public static {className} Instance");
                 builder.OpenBlock("get");
-                builder.OpenBlock("if (_singletonInstance == null)");
-                builder.OpenBlock("lock (_lock)");
-                builder.OpenBlock("if (_singletonInstance == null)");
-                builder.AppendLine("_singletonInstance = GetOrCreateRemoteBridge();");
-                builder.CloseBlock();
-                builder.CloseBlock();
-                builder.CloseBlock();
-                builder.AppendLine("return _singletonInstance;");
+                builder.AppendLine($"var targetInstance = global::{targetModel.Symbol.ToDisplayString()}.Instance;");
+                builder.AppendLine($"// Note: This creates a bridge in the current AppDomain, not an isolated one");
+                builder.AppendLine($"return new {className}(targetInstance, AppDomain.CurrentDomain);");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.AppendLine();
@@ -69,70 +64,95 @@ namespace DomainBridge.SourceGenerators.Services
 
         private void GenerateConstructors(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
         {
-            // Internal constructor for wrapping instances
-            builder.OpenBlock($"internal {className}(dynamic instance)");
+            // Private constructor that takes instance and AppDomain
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine($"/// Internal constructor for wrapping an existing instance of {targetModel.Symbol.Name}");
+            builder.AppendLine("/// </summary>");
+            builder.OpenBlock($"private {className}(dynamic instance, AppDomain appDomain)");
             builder.AppendLine("_instance = instance ?? throw new ArgumentNullException(nameof(instance));");
-            builder.CloseBlock();
-            builder.AppendLine();
-
-            // Public parameterless constructor - used when created in isolated domain
-            builder.OpenBlock($"public {className}()");
-            builder.AppendLine($"// When created in isolated domain, create the target instance directly");
-            
-            if (!string.IsNullOrEmpty(config?.FactoryMethod))
-            {
-                // Use the specified factory method
-                builder.AppendLine($"_instance = {config.FactoryMethod}();");
-            }
-            else
-            {
-                // Fall back to default behavior
-                builder.AppendLine($"var targetType = typeof(global::{targetModel.Symbol.ToDisplayString()});");
-                builder.AppendLine($"var instanceProperty = targetType.GetProperty(\"Instance\", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);");
-                builder.AppendLine($"if (instanceProperty != null && instanceProperty.CanRead)");
-                builder.AppendLine($"{{");
-                builder.AppendLine($"    _instance = instanceProperty.GetValue(null);");
-                builder.AppendLine($"}}");
-                builder.AppendLine($"else");
-                builder.AppendLine($"{{");
-                builder.AppendLine($"    _instance = Activator.CreateInstance(targetType);");
-                builder.AppendLine($"}}");
-            }
-            
+            builder.AppendLine("_appDomain = appDomain ?? throw new ArgumentNullException(nameof(appDomain));");
             builder.CloseBlock();
             builder.AppendLine();
         }
 
-        private void GenerateFactoryMethods(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
+        private void GenerateCreateMethods(CodeBuilder builder, string className, TypeModel targetModel)
         {
-            // CreateIsolated method
-            builder.OpenBlock($"public static {className} CreateIsolated(DomainConfiguration? config = null)");
-            builder.AppendLine("EnsureIsolatedDomain(config);");
-            builder.AppendLine("return GetOrCreateRemoteBridge();");
+            // Generate Create method with factory
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine($"/// Creates a new isolated instance of {targetModel.Symbol.Name} in a separate AppDomain");
+            builder.AppendLine("/// </summary>");
+            builder.AppendLine("/// <param name=\"factory\">Factory function to create the target instance in the isolated AppDomain</param>");
+            builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
+            builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
+            builder.OpenBlock($"public static {className} Create(Func<{targetModel.Symbol.ToDisplayString()}> factory, DomainConfiguration? config = null)");
+            builder.AppendLine("if (factory == null) throw new ArgumentNullException(nameof(factory));");
+            builder.AppendLine();
+            builder.AppendLine("// Create configuration");
+            builder.AppendLine("config = config ?? new DomainConfiguration();");
+            builder.AppendLine($"config.TargetAssembly = config.TargetAssembly ?? typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName;");
+            builder.AppendLine();
+            builder.AppendLine("// Create AppDomain");
+            builder.AppendLine("var setup = new AppDomainSetup");
+            builder.AppendLine("{");
+            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory,");
+            builder.AppendLine("    PrivateBinPath = config.PrivateBinPath,");
+            builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
+            builder.AppendLine("};");
+            builder.AppendLine();
+            builder.AppendLine("if (config.EnableShadowCopy)");
+            builder.AppendLine("{");
+            builder.AppendLine("    setup.ShadowCopyFiles = \"true\";");
+            builder.AppendLine("    setup.ShadowCopyDirectories = setup.ApplicationBase;");
+            builder.AppendLine("}");
+            builder.AppendLine();
+            builder.AppendLine($"var domainName = $\"{className}_{{Guid.NewGuid():N}}\";");
+            builder.AppendLine("var appDomain = AppDomain.CreateDomain(domainName, null, setup);");
+            builder.AppendLine();
+            builder.AppendLine("try");
+            builder.AppendLine("{");
+            builder.AppendLine("    // Create a proxy factory in the isolated domain");
+            builder.AppendLine("    var proxyFactoryType = typeof(ProxyFactory);");
+            builder.AppendLine("    var proxyFactory = (ProxyFactory)appDomain.CreateInstanceAndUnwrap(");
+            builder.AppendLine("        proxyFactoryType.Assembly.FullName,");
+            builder.AppendLine("        proxyFactoryType.FullName);");
+            builder.AppendLine();
+            builder.AppendLine("    // Configure the proxy factory with assembly resolver if needed");
+            builder.AppendLine("    if (!string.IsNullOrEmpty(config.AssemblySearchPaths))");
+            builder.AppendLine("    {");
+            builder.AppendLine("        proxyFactory.ConfigureAssemblyResolver(config.AssemblySearchPaths.Split(';'));");
+            builder.AppendLine("    }");
+            builder.AppendLine();
+            builder.AppendLine("    // Create the target instance in the isolated domain using the factory");
+            builder.AppendLine($"    var targetInstance = proxyFactory.CreateInstance<{targetModel.Symbol.ToDisplayString()}>(factory);");
+            builder.AppendLine();
+            builder.AppendLine($"    // Create and return the bridge");
+            builder.AppendLine($"    return new {className}(targetInstance, appDomain);");
+            builder.AppendLine("}");
+            builder.AppendLine("catch");
+            builder.AppendLine("{");
+            builder.AppendLine("    // If creation fails, unload the domain");
+            builder.AppendLine("    try { AppDomain.Unload(appDomain); } catch { }");
+            builder.AppendLine("    throw;");
+            builder.AppendLine("}");
             builder.CloseBlock();
             builder.AppendLine();
 
-            // EnsureIsolatedDomain method
-            GenerateEnsureIsolatedDomainMethod(builder, className, targetModel, config);
+            // Check if type has parameterless constructor
+            var hasParameterlessConstructor = targetModel.Symbol.InstanceConstructors
+                .Any(c => c.Parameters.Length == 0 && c.DeclaredAccessibility == Accessibility.Public);
 
-            // GetOrCreateRemoteInstance method
-            builder.OpenBlock($"private static {className} GetOrCreateRemoteBridge()");
-            builder.OpenBlock("if (_remoteProxy == null)");
-            builder.OpenBlock("lock (_lock)");
-            builder.OpenBlock("if (_remoteProxy == null)");
-            builder.AppendLine("EnsureIsolatedDomain();");
-            builder.AppendLine();
-            builder.AppendLine($"// Create bridge instance in isolated domain");
-            builder.AppendLine($"var bridgeType = typeof({className});");
-            builder.AppendLine("_remoteProxy = _isolatedDomain!.CreateInstanceAndUnwrap(");
-            builder.AppendLine("    bridgeType.Assembly.FullName,");
-            builder.AppendLine("    bridgeType.FullName);");
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.AppendLine($"return ({className})_remoteProxy;");
-            builder.CloseBlock();
-            builder.AppendLine();
+            if (hasParameterlessConstructor)
+            {
+                builder.AppendLine("/// <summary>");
+                builder.AppendLine($"/// Creates a new isolated instance of {targetModel.Symbol.Name} in a separate AppDomain using the default constructor");
+                builder.AppendLine("/// </summary>");
+                builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
+                builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
+                builder.OpenBlock($"public static {className} Create(DomainConfiguration? config = null)");
+                builder.AppendLine($"return Create(() => new {targetModel.Symbol.ToDisplayString()}(), config);");
+                builder.CloseBlock();
+                builder.AppendLine();
+            }
         }
 
         private void GenerateDelegatingMembers(CodeBuilder builder, TypeModel targetModel)
@@ -147,6 +167,7 @@ namespace DomainBridge.SourceGenerators.Services
                 if (property.HasGetter)
                 {
                     builder.OpenBlock("get");
+                    builder.AppendLine("CheckDisposed();");
                     builder.AppendLine($"return _instance.{property.Name};");
                     builder.CloseBlock();
                 }
@@ -154,6 +175,7 @@ namespace DomainBridge.SourceGenerators.Services
                 if (property.HasSetter)
                 {
                     builder.OpenBlock("set");
+                    builder.AppendLine("CheckDisposed();");
                     builder.AppendLine($"_instance.{property.Name} = value;");
                     builder.CloseBlock();
                 }
@@ -174,6 +196,7 @@ namespace DomainBridge.SourceGenerators.Services
                 }));
 
                 builder.OpenBlock($"public {returnType} {method.Name}({parameters})");
+                builder.AppendLine("CheckDisposed();");
                 
                 var args = string.Join(", ", method.Parameters.Select(p => EscapeIdentifier(p.Name)));
                 var methodCall = $"_instance.{method.Name}({args})";
@@ -197,41 +220,49 @@ namespace DomainBridge.SourceGenerators.Services
                 var eventType = GetTypeDisplayString(evt.Type);
                 builder.AppendLine($"public event {eventType} {evt.Name}");
                 builder.OpenBlock("");
-                builder.AppendLine($"add {{ _instance.{evt.Name} += value; }}");
-                builder.AppendLine($"remove {{ _instance.{evt.Name} -= value; }}");
+                builder.AppendLine($"add {{ CheckDisposed(); _instance.{evt.Name} += value; }}");
+                builder.AppendLine($"remove {{ CheckDisposed(); _instance.{evt.Name} -= value; }}");
                 builder.CloseBlock();
                 builder.AppendLine();
             }
         }
 
-        private void GenerateDisposalMethod(CodeBuilder builder, TypeModel targetModel)
+        private void GenerateDisposalImplementation(CodeBuilder builder)
         {
-            // Static disposal method
-            builder.OpenBlock("public static void UnloadDomain()");
-            builder.OpenBlock("lock (_lock)");
-            builder.OpenBlock("if (_isolatedDomain != null)");
+            // Generate Dispose method
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine("/// Disposes the bridge and unloads the associated AppDomain");
+            builder.AppendLine("/// </summary>");
+            builder.OpenBlock("public void Dispose()");
+            builder.AppendLine("Dispose(true);");
+            builder.AppendLine("GC.SuppressFinalize(this);");
+            builder.CloseBlock();
+            builder.AppendLine();
+
+            // Generate protected Dispose method
+            builder.OpenBlock("protected virtual void Dispose(bool disposing)");
+            builder.OpenBlock("if (!_disposed)");
+            builder.OpenBlock("if (disposing)");
+            builder.AppendLine("// Dispose managed resources");
+            builder.OpenBlock("if (_appDomain != null && _appDomain != AppDomain.CurrentDomain)");
             builder.OpenBlock("try");
-            builder.AppendLine("AppDomain.Unload(_isolatedDomain);");
+            builder.AppendLine("AppDomain.Unload(_appDomain);");
             builder.CloseBlock();
             builder.OpenBlock("catch (Exception ex)");
-            builder.AppendLine("System.Diagnostics.Debug.WriteLine($\"Failed to unload domain: {ex.Message}\");");
-            builder.CloseBlock();
-            builder.OpenBlock("finally");
-            builder.AppendLine("_isolatedDomain = null;");
-            builder.AppendLine("_remoteProxy = null;");
-            
-            // Only clear singleton instance if the target has one
-            var hasStaticInstance = targetModel.Symbol.GetMembers("Instance")
-                .OfType<IPropertySymbol>()
-                .Any(p => p.IsStatic && p.DeclaredAccessibility == Accessibility.Public);
-            
-            if (hasStaticInstance)
-            {
-                builder.AppendLine("_singletonInstance = null;");
-            }
-            
+            builder.AppendLine("// Log but don't throw from Dispose");
+            builder.AppendLine("System.Diagnostics.Debug.WriteLine($\"Failed to unload AppDomain: {ex.Message}\");");
             builder.CloseBlock();
             builder.CloseBlock();
+            builder.CloseBlock();
+            builder.AppendLine("_disposed = true;");
+            builder.CloseBlock();
+            builder.CloseBlock();
+            builder.AppendLine();
+
+            // Generate CheckDisposed method
+            builder.OpenBlock("private void CheckDisposed()");
+            builder.OpenBlock("if (_disposed)");
+            builder.AppendLine("throw new ObjectDisposedException(GetType().FullName);");
             builder.CloseBlock();
             builder.CloseBlock();
         }
@@ -296,95 +327,13 @@ namespace DomainBridge.SourceGenerators.Services
 
         private string FormatStringLiteral(string value)
         {
-            // Use verbatim string literals to avoid escaping issues with backslashes in paths
-            return $"@\"{value.Replace("\"", "\"\"")}\"";
-        }
-
-        private void GenerateEnsureIsolatedDomainMethod(CodeBuilder builder, string className, TypeModel targetModel, AttributeConfiguration? config)
-        {
-            builder.OpenBlock("private static void EnsureIsolatedDomain(DomainConfiguration? config = null)");
-            builder.OpenBlock("if (_isolatedDomain == null)");
-            builder.OpenBlock("lock (_lock)");
-            builder.OpenBlock("if (_isolatedDomain == null)");
-            
-            // Create or merge configuration
-            if (config != null)
-            {
-                builder.AppendLine("// Apply attribute configuration as defaults");
-                builder.AppendLine("var defaultConfig = new DomainConfiguration");
-                builder.AppendLine("{");
-                builder.AppendLine($"    TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName,");
-                
-                if (!string.IsNullOrEmpty(config.PrivateBinPath))
-                    builder.AppendLine($"    PrivateBinPath = {FormatStringLiteral(config.PrivateBinPath)},");
-                    
-                if (!string.IsNullOrEmpty(config.ApplicationBase))
-                    builder.AppendLine($"    ApplicationBase = {FormatStringLiteral(config.ApplicationBase)},");
-                    
-                if (!string.IsNullOrEmpty(config.ConfigurationFile))
-                    builder.AppendLine($"    ConfigurationFile = {FormatStringLiteral(config.ConfigurationFile)},");
-                    
-                if (config.EnableShadowCopy)
-                    builder.AppendLine("    EnableShadowCopy = true,");
-                    
-                if (!string.IsNullOrEmpty(config.AssemblySearchPaths))
-                    builder.AppendLine($"    AssemblySearchPaths = {FormatStringLiteral(config.AssemblySearchPaths)}");
-                    
-                builder.AppendLine("};");
-                builder.AppendLine();
-                builder.AppendLine("// Merge with runtime config (runtime config takes precedence)");
-                builder.AppendLine("config = config ?? defaultConfig;");
-                builder.AppendLine("config.TargetAssembly = config.TargetAssembly ?? defaultConfig.TargetAssembly;");
-                builder.AppendLine("config.PrivateBinPath = config.PrivateBinPath ?? defaultConfig.PrivateBinPath;");
-                builder.AppendLine("config.ApplicationBase = config.ApplicationBase ?? defaultConfig.ApplicationBase;");
-                builder.AppendLine("config.ConfigurationFile = config.ConfigurationFile ?? defaultConfig.ConfigurationFile;");
-                builder.AppendLine("config.EnableShadowCopy = config.EnableShadowCopy || defaultConfig.EnableShadowCopy;");
-                builder.AppendLine("config.AssemblySearchPaths = config.AssemblySearchPaths ?? defaultConfig.AssemblySearchPaths;");
-            }
-            else
-            {
-                builder.AppendLine("config = config ?? new DomainConfiguration();");
-                builder.AppendLine($"config.TargetAssembly = typeof({targetModel.Symbol.ToDisplayString()}).Assembly.FullName;");
-            }
-            
-            builder.AppendLine();
-            builder.AppendLine("var setup = new AppDomainSetup");
-            builder.AppendLine("{");
-            builder.AppendLine("    ApplicationBase = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory,");
-            builder.AppendLine("    PrivateBinPath = config.PrivateBinPath,");
-            builder.AppendLine("    ConfigurationFile = config.ConfigurationFile");
-            
-            if (config?.EnableShadowCopy == true)
-            {
-                builder.AppendLine(",");
-                builder.AppendLine("    ShadowCopyFiles = \"true\",");
-                builder.AppendLine("    ShadowCopyDirectories = config.ApplicationBase ?? AppDomain.CurrentDomain.BaseDirectory");
-            }
-            
-            builder.AppendLine("};");
-            builder.AppendLine();
-            builder.AppendLine($"var domainName = $\"{className}_IsolatedDomain_{{Guid.NewGuid():N}}\";");
-            builder.AppendLine("_isolatedDomain = AppDomain.CreateDomain(domainName, null, setup);");
-            
-            // Add assembly search paths if specified
-            if (config?.AssemblySearchPaths != null)
-            {
-                builder.AppendLine();
-                builder.AppendLine("// Add additional assembly search paths");
-                builder.AppendLine("if (!string.IsNullOrEmpty(config.AssemblySearchPaths))");
-                builder.AppendLine("{");
-                builder.AppendLine("    var resolver = _isolatedDomain.CreateInstanceAndUnwrap(");
-                builder.AppendLine("        typeof(DomainBridge.Runtime.AssemblyResolver).Assembly.FullName,");
-                builder.AppendLine("        typeof(DomainBridge.Runtime.AssemblyResolver).FullName) as DomainBridge.Runtime.AssemblyResolver;");
-                builder.AppendLine("    resolver?.AddSearchPaths(config.AssemblySearchPaths.Split(';'));");
-                builder.AppendLine("}");
-            }
-            
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.CloseBlock();
-            builder.AppendLine();
+            // Escape special characters in string literals
+            return "\"" + value
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\r", "\\r")
+                .Replace("\n", "\\n")
+                .Replace("\t", "\\t") + "\"";
         }
     }
 }

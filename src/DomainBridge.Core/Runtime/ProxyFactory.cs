@@ -8,6 +8,7 @@ namespace DomainBridge.Runtime
     /// </summary>
     public class ProxyFactory : MarshalByRefObject
     {
+        private AssemblyResolver? _assemblyResolver;
         public object CreateProxy(string assemblyName, string typeName)
         {
             // Load the assembly and resolve the type in this AppDomain
@@ -44,6 +45,31 @@ namespace DomainBridge.Runtime
                     $"Could not create instance of type '{targetType}'. " +
                     $"Type must have a public parameterless constructor or a static Instance property.", ex);
             }
+        }
+        
+        /// <summary>
+        /// Configures the assembly resolver with additional search paths
+        /// </summary>
+        public void ConfigureAssemblyResolver(string[] searchPaths)
+        {
+            if (_assemblyResolver == null)
+            {
+                _assemblyResolver = new AssemblyResolver();
+                // AssemblyResolver constructor already sets up the event handler
+            }
+            
+            _assemblyResolver.AddSearchPaths(searchPaths);
+        }
+        
+        /// <summary>
+        /// Creates an instance using a factory function
+        /// </summary>
+        public T CreateInstance<T>(Func<T> factory) where T : class
+        {
+            if (factory == null)
+                throw new ArgumentNullException(nameof(factory));
+                
+            return factory();
         }
         
         public override object? InitializeLifetimeService()

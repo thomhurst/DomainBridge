@@ -60,8 +60,7 @@ namespace DomainBridge.Tests
         }
 
         [Test]
-        [NotInParallel("StaticState")]
-        public async Task CreateIsolated_WithConfig_Works()
+        public async Task Create_WithConfig_Works()
         {
             // Arrange
             var config = new DomainConfiguration
@@ -69,25 +68,15 @@ namespace DomainBridge.Tests
                 EnableShadowCopy = true
             };
 
-            // Act
-            var app = TestApplicationBridge.CreateIsolated(config);
-
-            // Assert
-            await Assert.That(app).IsNotNull();
-            var message = app.GetMessage();
-            await Assert.That(message).IsEqualTo("Hello from TestApplication");
+            // Act & Assert
+            using (var app = TestApplicationBridge.Create(config))
+            {
+                await Assert.That(app).IsNotNull();
+                var message = app.GetMessage();
+                await Assert.That(message).IsEqualTo("Hello from TestApplication");
+            }
         }
 
-        [Test]
-        [NotInParallel("StaticState")]
-        public void UnloadDomain_DoesNotThrow()
-        {
-            // Arrange - ensure domain is loaded
-            var app = TestApplicationBridge.Instance;
-            
-            // Act & Assert - should not throw
-            TestApplicationBridge.UnloadDomain();
-        }
     }
     
     // Bridge for testing
