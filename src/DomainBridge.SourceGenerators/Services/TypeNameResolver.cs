@@ -7,10 +7,12 @@ namespace DomainBridge.SourceGenerators.Services
     internal class TypeNameResolver
     {
         private readonly HashSet<string> _processedTypes;
+        private readonly Dictionary<string, string> _typeToBridgeMapping;
 
-        public TypeNameResolver(HashSet<string> processedTypes)
+        public TypeNameResolver(HashSet<string> processedTypes, Dictionary<string, string>? typeToBridgeMapping = null)
         {
             _processedTypes = processedTypes;
+            _typeToBridgeMapping = typeToBridgeMapping ?? new Dictionary<string, string>();
         }
 
         public string GetProxyTypeName(ITypeSymbol type)
@@ -47,6 +49,12 @@ namespace DomainBridge.SourceGenerators.Services
 
                 if (IsComplexType(type) && _processedTypes.Contains(type.ToDisplayString()))
                 {
+                    // Use the pre-calculated bridge name if available
+                    if (_typeToBridgeMapping.TryGetValue(type.ToDisplayString(), out var bridgeName))
+                    {
+                        return bridgeName;
+                    }
+                    // Fallback to default naming
                     return $"{namedType.Name}Bridge";
                 }
             }

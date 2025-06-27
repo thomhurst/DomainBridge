@@ -179,9 +179,9 @@ namespace DomainBridge.SourceGenerators.Services
                     if (_typeNameResolver.IsComplexType(property.Type))
                     {
                         // Need to wrap complex return types
-                        var typeName = (property.Type as INamedTypeSymbol)?.Name ?? property.Type.Name;
+                        var proxyTypeName = _typeNameResolver.GetProxyTypeName(property.Type);
                         builder.AppendLine($"var value = _instance.{property.Name};");
-                        builder.AppendLine($"return value == null ? null : WrapInstance<{typeName}Bridge>(value);");
+                        builder.AppendLine($"return value == null ? null : WrapInstance<{proxyTypeName}>(value);");
                     }
                     else
                     {
@@ -223,9 +223,9 @@ namespace DomainBridge.SourceGenerators.Services
                 }
                 else if (_typeNameResolver.IsComplexType(method.ReturnType))
                 {
-                    var typeName = (method.ReturnType as INamedTypeSymbol)?.Name ?? method.ReturnType.Name;
+                    var proxyTypeName = _typeNameResolver.GetProxyTypeName(method.ReturnType);
                     builder.AppendLine($"var result = {methodCall};");
-                    builder.AppendLine($"return result == null ? null : WrapInstance<{typeName}Bridge>(result);");
+                    builder.AppendLine($"return result == null ? null : WrapInstance<{proxyTypeName}>(result);");
                 }
                 else
                 {
