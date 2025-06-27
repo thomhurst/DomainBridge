@@ -8,29 +8,8 @@ namespace DomainBridge.Runtime
     /// </summary>
     public class ProxyFactory : MarshalByRefObject
     {
-        public object CreateProxy(string typeName)
+        public object CreateProxy(Type targetType)
         {
-            Type? targetType = null;
-            
-            // Search for the type in all loaded assemblies
-            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                targetType = assembly.GetType(typeName);
-                if (targetType != null)
-                    break;
-            }
-            
-            if (targetType == null)
-            {
-                // Try to load by assembly-qualified name
-                targetType = Type.GetType(typeName);
-            }
-            
-            if (targetType == null)
-            {
-                throw new TypeLoadException($"Could not find type '{typeName}'");
-            }
-            
             // Check for static Instance property first
             var instanceProperty = targetType.GetProperty("Instance", 
                 BindingFlags.Public | BindingFlags.Static);
@@ -52,7 +31,7 @@ namespace DomainBridge.Runtime
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
-                    $"Could not create instance of type '{typeName}'. " +
+                    $"Could not create instance of type '{targetType}'. " +
                     $"Type must have a public parameterless constructor or a static Instance property.", ex);
             }
         }

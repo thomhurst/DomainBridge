@@ -108,7 +108,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("    proxyType.FullName) as dynamic;");
             builder.AppendLine();
             builder.AppendLine($"// Get instance of {targetModel.Name}");
-            builder.AppendLine($"_remoteProxy = factory.CreateProxy(\"{targetModel.Symbol.ToDisplayString()}\");");
+            builder.AppendLine($"_remoteProxy = factory.CreateProxy(typeof(global::{targetModel.Symbol.ToDisplayString()}));");
             builder.CloseBlock();
             builder.CloseBlock();
             builder.CloseBlock();
