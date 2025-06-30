@@ -935,9 +935,32 @@ namespace DomainBridge.SourceGenerators.Services
             }));
         }
         
+        private string ResolveEventType(ITypeSymbol eventType)
+        {
+            // For delegate types, we want to preserve the delegate but resolve any generic type arguments
+            if (eventType is INamedTypeSymbol namedType && namedType.IsGenericType && namedType.TypeArguments.Length > 0)
+            {
+                // Get the base delegate type without generic arguments
+                var baseTypeName = namedType.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                
+                // Resolve each type argument through the type resolver
+                var resolvedArgs = namedType.TypeArguments
+                    .Select(arg => _typeResolver.ResolveType(arg))
+                    .ToList();
+                
+                // Reconstruct the generic type with resolved arguments
+                return $"{baseTypeName.Substring(0, baseTypeName.IndexOf('<'))}<{string.Join(", ", resolvedArgs)}>";
+            }
+            
+            // For non-generic delegate types, use as-is
+            return eventType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        }
+
         private void GenerateEvent(CodeBuilder builder, EventModel evt)
         {
-            var eventType = _typeResolver.ResolveType(evt.Type);
+            // For events, we need to preserve the delegate type but resolve any generic type arguments
+            // that may need bridging (e.g., EventHandler<CustomEventArgs> -> EventHandler<CustomEventArgsBridge>)
+            var eventType = ResolveEventType(evt.Type);
             
             // Check if this is an explicit interface implementation
             if (evt.IsInterfaceMember && evt.DeclaringInterface != null)
