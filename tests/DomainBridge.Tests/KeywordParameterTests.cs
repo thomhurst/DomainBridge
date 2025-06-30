@@ -14,12 +14,6 @@ namespace DomainBridge.Tests
         {
             return $"Event: {@event}, Class: {@class}, Checked: {@checked}";
         }
-        
-        public void Subscribe(string @namespace, Action<string> @delegate)
-        {
-            // Simulate subscription
-            @delegate?.Invoke($"Subscribed to {@namespace}");
-        }
     }
     
     [DomainBridge(typeof(EventService))]
