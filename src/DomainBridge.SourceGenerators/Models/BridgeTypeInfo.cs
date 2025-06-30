@@ -57,7 +57,7 @@ namespace DomainBridge.SourceGenerators.Models
                 BridgeClassName = $"{typeName}Bridge";
             }
             
-            BridgeFullName = $"{BridgeNamespace}.{BridgeClassName}";
+            BridgeFullName = string.IsNullOrEmpty(BridgeNamespace) ? BridgeClassName : $"{BridgeNamespace}.{BridgeClassName}";
             
             // Generate unique filename based on full type name
             // Replace invalid filename characters with underscores

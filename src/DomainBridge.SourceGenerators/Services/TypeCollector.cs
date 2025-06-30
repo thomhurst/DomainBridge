@@ -233,7 +233,7 @@ namespace DomainBridge.SourceGenerators.Services
         
         private void ProcessNamedType(INamedTypeSymbol type)
         {
-            // Skip if already processed
+            // Skip if already processed (either as explicit or auto-discovered)
             if (_collectedTypes.ContainsKey(type))
             {
                 return;

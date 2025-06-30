@@ -159,8 +159,7 @@ namespace DomainBridge.SourceGenerators
                         
                         // Generate using enhanced generator for async support
                         var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, config, context);
-                        var fileName = $"{classSymbol.Name}.g.cs";
-                        context.AddSource(fileName, SourceText.From(generatedCode, Encoding.UTF8));
+                        context.AddSource(bridgeInfo.FileName, SourceText.From(generatedCode, Encoding.UTF8));
                     }
                     catch (Exception ex)
                     {
