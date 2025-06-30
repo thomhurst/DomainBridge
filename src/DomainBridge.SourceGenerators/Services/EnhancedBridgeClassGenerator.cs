@@ -409,7 +409,26 @@ namespace DomainBridge.SourceGenerators.Services
                 }
                 else if (_typeResolver.NeedsWrapping(property.Type))
                 {
-                    builder.AppendLine($"{instanceAssignment} = value?._instance;");
+                    // For auto-generated bridges, we need to check if it's a bridge type and unwrap properly
+                    var bridgeInfo = GetBridgeInfo(property.Type);
+                    if (bridgeInfo.IsExplicitlyMarked)
+                    {
+                        // User-defined bridge - access _instance directly
+                        builder.AppendLine($"{instanceAssignment} = value?._instance;");
+                    }
+                    else
+                    {
+                        // Auto-generated bridge - use GetUnwrapped method or cast and access
+                        builder.AppendLine($"if (value == null)");
+                        builder.AppendLine($"{{");
+                        builder.AppendLine($"    {instanceAssignment} = null;");
+                        builder.AppendLine($"}}");
+                        builder.AppendLine($"else");
+                        builder.AppendLine($"{{");
+                        builder.AppendLine($"    var bridgedValue = value as global::{bridgeInfo.BridgeFullName};");
+                        builder.AppendLine($"    {instanceAssignment} = bridgedValue?._instance;");
+                        builder.AppendLine($"}}");
+                    }
                 }
                 else
                 {
@@ -827,7 +846,18 @@ namespace DomainBridge.SourceGenerators.Services
             {
                 if (_typeResolver.NeedsWrapping(p.Type))
                 {
-                    return $"{EscapeIdentifier(p.Name)}?._instance";
+                    // For parameters that need wrapping, we need to unwrap them properly
+                    var bridgeInfo = GetBridgeInfo(p.Type);
+                    if (bridgeInfo.IsExplicitlyMarked)
+                    {
+                        // User-defined bridge - access _instance directly
+                        return $"{EscapeIdentifier(p.Name)}?._instance";
+                    }
+                    else
+                    {
+                        // Auto-generated bridge - need to cast and access
+                        return $"(({EscapeIdentifier(p.Name)} as global::{bridgeInfo.BridgeFullName})?._instance ?? {EscapeIdentifier(p.Name)})";
+                    }
                 }
                 return EscapeIdentifier(p.Name);
             }));

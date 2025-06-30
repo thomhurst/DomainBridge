@@ -72,9 +72,16 @@ namespace DomainBridge.SourceGenerators.Services
             if (!visitedTypes.Add(type))
                 return type.ToDisplayString(FullyQualifiedFormat);
                 
-            // Handle nullable reference types
+            // Handle nullable reference types (but not nullable value types like int?)
             if (type.NullableAnnotation == NullableAnnotation.Annotated && type is not ITypeParameterSymbol)
             {
+                // Check if this is already a nullable value type (e.g., int?, Nullable<int>)
+                if (type.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T)
+                {
+                    // It's already nullable, don't add another ?
+                    return type.ToDisplayString(FullyQualifiedFormat);
+                }
+                
                 var underlyingType = type.WithNullableAnnotation(NullableAnnotation.None);
                 return ResolveTypeInternal(underlyingType, visitedTypes) + "?";
             }

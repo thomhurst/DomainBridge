@@ -69,6 +69,10 @@ namespace DomainBridge.SourceGenerators.Services
                 return false;
             }
                 
+            // Skip types marked with [Serializable] - they can cross AppDomain boundaries directly
+            if (IsSerializable(type))
+                return false;
+                
             // Skip types with the ignore attribute
             if (HasIgnoreAttribute(type))
                 return false;
@@ -107,6 +111,13 @@ namespace DomainBridge.SourceGenerators.Services
         {
             return type.GetAttributes().Any(attr =>
                 attr.AttributeClass?.ToDisplayString() == DomainBridgeIgnoreAttribute);
+        }
+        
+        private bool IsSerializable(ITypeSymbol type)
+        {
+            // Check if the type has the [Serializable] attribute
+            return type.GetAttributes().Any(attr =>
+                attr.AttributeClass?.ToDisplayString() == "System.SerializableAttribute");
         }
         
         private bool IsSystemType(ITypeSymbol type)
