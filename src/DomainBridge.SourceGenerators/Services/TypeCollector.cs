@@ -28,16 +28,20 @@ namespace DomainBridge.SourceGenerators.Services
         /// Collects all types that need bridges starting from the root types
         /// </summary>
         public IReadOnlyDictionary<INamedTypeSymbol, BridgeTypeInfo> CollectTypes(
-            IEnumerable<INamedTypeSymbol> explicitlyMarkedTypes)
+            IEnumerable<(INamedTypeSymbol targetType, string bridgeClassName, string bridgeNamespace)> explicitlyMarkedTypes)
         {
             // First, add all explicitly marked types
-            foreach (var type in explicitlyMarkedTypes)
+            foreach (var (targetType, bridgeClassName, bridgeNamespace) in explicitlyMarkedTypes)
             {
-                if (_typeFilter.ShouldGenerateBridge(type))
+                if (_typeFilter.ShouldGenerateBridge(targetType))
                 {
-                    var info = new BridgeTypeInfo(type, isExplicitlyMarked: true);
-                    _collectedTypes[type] = info;
-                    EnqueueType(type);
+                    var info = new BridgeTypeInfo(
+                        targetType, 
+                        isExplicitlyMarked: true, 
+                        explicitBridgeClassName: bridgeClassName, 
+                        explicitBridgeNamespace: bridgeNamespace);
+                    _collectedTypes[targetType] = info;
+                    EnqueueType(targetType);
                 }
             }
             

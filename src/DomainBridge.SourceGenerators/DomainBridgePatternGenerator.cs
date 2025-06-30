@@ -40,7 +40,7 @@ namespace DomainBridge.SourceGenerators
                 var generator = new BridgeClassGenerator();
                 var typeFilter = new TypeFilter(context);
                 var typeCollector = new TypeCollector(typeFilter);
-                var explicitlyMarkedTypes = new List<INamedTypeSymbol>();
+                var explicitlyMarkedTypes = new List<(INamedTypeSymbol targetType, string bridgeClassName, string bridgeNamespace)>();
                 var partialClassesToGenerate = new List<(ClassDeclarationSyntax classDecl, INamedTypeSymbol targetType, AttributeConfiguration config)>();
 
                 // First pass: collect all explicitly marked types
@@ -90,7 +90,13 @@ namespace DomainBridge.SourceGenerators
                                         DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(targetType, classDeclaration.GetLocation()));
                                 }
                                 
-                                explicitlyMarkedTypes.Add(targetType);
+                                // Get the bridge class name and namespace from the partial class declaration
+                                var bridgeClassName = classSymbol.Name;
+                                var bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
+                                    ? ""
+                                    : classSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                                
+                                explicitlyMarkedTypes.Add((targetType, bridgeClassName, bridgeNamespace));
                                 var config = ExtractAttributeConfiguration(attribute);
                                 partialClassesToGenerate.Add((classDeclaration, targetType, config));
                             }
