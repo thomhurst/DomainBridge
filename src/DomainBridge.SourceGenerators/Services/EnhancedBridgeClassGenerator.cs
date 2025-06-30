@@ -247,15 +247,33 @@ namespace DomainBridge.SourceGenerators.Services
         {
             var propertyType = _typeResolver.ResolveType(property.Type);
             
-            // Handle indexers differently
-            if (property.IsIndexer)
+            // Check if this is an explicit interface implementation
+            if (property.IsInterfaceMember && property.DeclaringInterface != null)
             {
-                var parameters = GenerateParameterList(property.Parameters);
-                builder.OpenBlock($"public {propertyType} this[{parameters}]");
+                var interfaceType = _typeResolver.ResolveType(property.DeclaringInterface);
+                // Handle indexers differently
+                if (property.IsIndexer)
+                {
+                    var parameters = GenerateParameterList(property.Parameters);
+                    builder.OpenBlock($"{propertyType} {interfaceType}.this[{parameters}]");
+                }
+                else
+                {
+                    builder.OpenBlock($"{propertyType} {interfaceType}.{property.Name}");
+                }
             }
             else
             {
-                builder.OpenBlock($"public {propertyType} {property.Name}");
+                // Handle indexers differently
+                if (property.IsIndexer)
+                {
+                    var parameters = GenerateParameterList(property.Parameters);
+                    builder.OpenBlock($"public {propertyType} this[{parameters}]");
+                }
+                else
+                {
+                    builder.OpenBlock($"public {propertyType} {property.Name}");
+                }
             }
             
             if (property.HasGetter)
@@ -417,20 +435,29 @@ namespace DomainBridge.SourceGenerators.Services
                 }
             }
             
-            // Check if method is async (returns Task or Task<T>)
-            var isAsync = IsTaskType(method.ReturnType, out var taskResultType);
-            
-            if (isAsync)
+            // Check if this is an explicit interface implementation
+            if (method.IsInterfaceMember && method.DeclaringInterface != null)
             {
-                // Generate async wrapper method that calls synchronous wrapper via Task.Run
-                GenerateAsyncBridgeMethod(builder, method, taskResultType);
-                // Also generate the internal synchronous wrapper method
-                GenerateSyncWrapperMethod(builder, method, taskResultType);
+                // Generate explicit interface implementation
+                GenerateExplicitInterfaceMethod(builder, method);
             }
             else
             {
-                // Generate normal synchronous method
-                GenerateNormalMethod(builder, method);
+                // Check if method is async (returns Task or Task<T>)
+                var isAsync = IsTaskType(method.ReturnType, out var taskResultType);
+                
+                if (isAsync)
+                {
+                    // Generate async wrapper method that calls synchronous wrapper via Task.Run
+                    GenerateAsyncBridgeMethod(builder, method, taskResultType);
+                    // Also generate the internal synchronous wrapper method
+                    GenerateSyncWrapperMethod(builder, method, taskResultType);
+                }
+                else
+                {
+                    // Generate normal synchronous method
+                    GenerateNormalMethod(builder, method);
+                }
             }
         }
         
@@ -595,6 +622,46 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
             builder.AppendLine("throw new global::System.InvalidOperationException(");
             builder.AppendLine($"    $\"Exception in method {method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
+            builder.AppendLine("    ex.InnerException);");
+            builder.CloseBlock(); // catch
+            
+            builder.CloseBlock();
+            builder.AppendLine();
+        }
+        
+        private void GenerateExplicitInterfaceMethod(CodeBuilder builder, MethodModel method)
+        {
+            var interfaceType = _typeResolver.ResolveType(method.DeclaringInterface!);
+            var returnType = _typeResolver.ResolveType(method.ReturnType);
+            var parameters = GenerateParameterList(method.Parameters);
+            
+            // Generate explicit interface implementation
+            builder.OpenBlock($"{returnType} {interfaceType}.{method.Name}({parameters})");
+            builder.AppendLine("CheckDisposed();");
+            
+            // Generate method call with exception wrapping
+            var args = GenerateArgumentList(method.Parameters);
+            var methodCall = $"(({interfaceType})_instance).{method.Name}({args})";
+            
+            // Wrap in try-catch for exception handling
+            builder.OpenBlock("try");
+            
+            if (method.ReturnType.SpecialType == SpecialType.System_Void)
+            {
+                builder.AppendLine($"{methodCall};");
+            }
+            else
+            {
+                GenerateReturnStatement(builder, method.ReturnType, methodCall);
+            }
+            
+            builder.CloseBlock(); // try
+            
+            // Add catch block for non-serializable exceptions
+            builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
+            builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
+            builder.AppendLine("throw new global::System.InvalidOperationException(");
+            builder.AppendLine($"    $\"Exception in method {interfaceType}.{method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
             builder.AppendLine("    ex.InnerException);");
             builder.CloseBlock(); // catch
             
@@ -769,10 +836,22 @@ namespace DomainBridge.SourceGenerators.Services
         private void GenerateEvent(CodeBuilder builder, EventModel evt)
         {
             var eventType = _typeResolver.ResolveType(evt.Type);
-            builder.AppendLine($"public event {eventType} {evt.Name}");
-            builder.OpenBlock("");
-            builder.AppendLine($"add {{ CheckDisposed(); _instance.{evt.Name} += value; }}");
-            builder.AppendLine($"remove {{ CheckDisposed(); _instance.{evt.Name} -= value; }}");
+            
+            // Check if this is an explicit interface implementation
+            if (evt.IsInterfaceMember && evt.DeclaringInterface != null)
+            {
+                var interfaceType = _typeResolver.ResolveType(evt.DeclaringInterface);
+                builder.OpenBlock($"event {eventType} {interfaceType}.{evt.Name}");
+                builder.AppendLine($"add {{ CheckDisposed(); (({interfaceType})_instance).{evt.Name} += value; }}");
+                builder.AppendLine($"remove {{ CheckDisposed(); (({interfaceType})_instance).{evt.Name} -= value; }}");
+            }
+            else
+            {
+                builder.OpenBlock($"public event {eventType} {evt.Name}");
+                builder.AppendLine($"add {{ CheckDisposed(); _instance.{evt.Name} += value; }}");
+                builder.AppendLine($"remove {{ CheckDisposed(); _instance.{evt.Name} -= value; }}");
+            }
+            
             builder.CloseBlock();
             builder.AppendLine();
         }

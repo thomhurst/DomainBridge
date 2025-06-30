@@ -16,7 +16,13 @@ namespace DomainBridge.SourceGenerators.Services
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+            
+        private static readonly SymbolDisplayFormat FullyQualifiedFormatWithoutGlobal = new SymbolDisplayFormat(
+            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+            globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
+            genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
         
         public BridgeTypeResolver(IReadOnlyDictionary<INamedTypeSymbol, BridgeTypeInfo> bridgeTypeMap)
         {
@@ -66,15 +72,34 @@ namespace DomainBridge.SourceGenerators.Services
             if (!visitedTypes.Add(type))
                 return type.ToDisplayString(FullyQualifiedFormat);
                 
+            // Handle nullable reference types
+            if (type.NullableAnnotation == NullableAnnotation.Annotated && type is not ITypeParameterSymbol)
+            {
+                var underlyingType = type.WithNullableAnnotation(NullableAnnotation.None);
+                return ResolveTypeInternal(underlyingType, visitedTypes) + "?";
+            }
+                
             // Handle special cases
             if (type.SpecialType != SpecialType.None)
                 return type.ToDisplayString(FullyQualifiedFormat);
+                
+            // Handle type parameters
+            if (type is ITypeParameterSymbol)
+                return type.Name;
+                
+            // Handle pointers
+            if (type is IPointerTypeSymbol pointerType)
+            {
+                var pointedType = ResolveTypeInternal(pointerType.PointedAtType, visitedTypes);
+                return $"{pointedType}*";
+            }
                 
             // Handle arrays
             if (type is IArrayTypeSymbol arrayType)
             {
                 var elementType = ResolveTypeInternal(arrayType.ElementType, visitedTypes);
-                return $"{elementType}[]";
+                var rankSpecifier = arrayType.Rank == 1 ? "[]" : $"[{new string(',', arrayType.Rank - 1)}]";
+                return $"{elementType}{rankSpecifier}";
             }
             
             // Handle named types
@@ -90,12 +115,31 @@ namespace DomainBridge.SourceGenerators.Services
                             .Select(arg => ResolveTypeInternal(arg, visitedTypes))
                             .ToList();
                             
-                        // Construct the generic bridge type
-                        return $"global::{bridgeInfo!.BridgeNamespace}.{bridgeInfo.BridgeClassName}<{string.Join(", ", resolvedArgs)}>";
+                        // Construct the generic bridge type with proper escaping for nested types
+                        var bridgeNamespace = EscapeNestedTypeName(bridgeInfo!.BridgeNamespace);
+                        var bridgeClassName = EscapeNestedTypeName(bridgeInfo.BridgeClassName);
+                        return $"global::{bridgeNamespace}.{bridgeClassName}<{string.Join(", ", resolvedArgs)}>";
                     }
                     
                     // Non-generic bridge type
-                    return $"global::{bridgeInfo!.BridgeFullName}";
+                    return $"global::{EscapeNestedTypeName(bridgeInfo!.BridgeFullName)}";
+                }
+                
+                // Handle nested types
+                if (namedType.ContainingType != null)
+                {
+                    var containingType = ResolveTypeInternal(namedType.ContainingType, visitedTypes);
+                    var typeName = namedType.Name;
+                    
+                    if (namedType.IsGenericType && namedType.TypeArguments.Length > 0)
+                    {
+                        var resolvedArgs = namedType.TypeArguments
+                            .Select(arg => ResolveTypeInternal(arg, visitedTypes))
+                            .ToList();
+                        typeName = $"{typeName}<{string.Join(", ", resolvedArgs)}>";
+                    }
+                    
+                    return $"{containingType}.{typeName}";
                 }
                 
                 // Handle generic types without bridges
@@ -127,6 +171,13 @@ namespace DomainBridge.SourceGenerators.Services
             }
             
             return fullName;
+        }
+        
+        private string EscapeNestedTypeName(string typeName)
+        {
+            // In C#, nested types use '+' in their metadata names but '.' in code
+            // We need to ensure we're using '.' for code generation
+            return typeName.Replace('+', '.');
         }
     }
 }

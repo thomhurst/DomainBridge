@@ -61,42 +61,106 @@ namespace DomainBridge.SourceGenerators.Services
                     
                 switch (member)
                 {
-                    case IMethodSymbol method when !method.IsStatic && method.MethodKind == MethodKind.Ordinary:
+                    case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
+                        // Process return type for both static and instance methods
                         ProcessType(method.ReturnType);
                         foreach (var parameter in method.Parameters)
                         {
                             ProcessType(parameter.Type);
                         }
+                        // Also process generic type constraints
+                        foreach (var typeParam in method.TypeParameters)
+                        {
+                            foreach (var constraint in typeParam.ConstraintTypes)
+                            {
+                                ProcessType(constraint);
+                            }
+                        }
                         break;
                         
-                    case IPropertySymbol property when !property.IsStatic:
+                    case IPropertySymbol property:
+                        // Process property type for both static and instance properties
                         ProcessType(property.Type);
+                        // Process indexer parameters
+                        if (property.IsIndexer)
+                        {
+                            foreach (var parameter in property.Parameters)
+                            {
+                                ProcessType(parameter.Type);
+                            }
+                        }
                         break;
                         
-                    case IEventSymbol eventSymbol when !eventSymbol.IsStatic:
+                    case IEventSymbol eventSymbol:
+                        // Process event type for both static and instance events
                         ProcessType(eventSymbol.Type);
                         break;
                         
-                    case IFieldSymbol field when !field.IsStatic && field.DeclaredAccessibility == Accessibility.Public:
+                    case IFieldSymbol field when field.DeclaredAccessibility == Accessibility.Public:
+                        // Process field type for both static and instance fields
                         ProcessType(field.Type);
+                        break;
+                        
+                    case INamedTypeSymbol nestedType:
+                        // Process nested types
+                        ProcessNamedType(nestedType);
                         break;
                 }
             }
             
+            // Analyze generic type parameters and constraints
+            foreach (var typeParam in type.TypeParameters)
+            {
+                foreach (var constraint in typeParam.ConstraintTypes)
+                {
+                    ProcessType(constraint);
+                }
+            }
+            
             // Also analyze base types and interfaces
-            if (type.BaseType != null)
+            if (type.BaseType != null && type.BaseType.SpecialType != SpecialType.System_Object)
             {
                 ProcessType(type.BaseType);
             }
             
+            // Process all interfaces including inherited ones
             foreach (var interfaceType in type.AllInterfaces)
             {
                 ProcessType(interfaceType);
+                // Also analyze interface members for deep type discovery
+                if (interfaceType is INamedTypeSymbol namedInterface)
+                {
+                    foreach (var member in namedInterface.GetMembers())
+                    {
+                        if (member.DeclaredAccessibility == Accessibility.Public)
+                        {
+                            switch (member)
+                            {
+                                case IMethodSymbol method:
+                                    ProcessType(method.ReturnType);
+                                    foreach (var param in method.Parameters)
+                                    {
+                                        ProcessType(param.Type);
+                                    }
+                                    break;
+                                case IPropertySymbol property:
+                                    ProcessType(property.Type);
+                                    break;
+                                case IEventSymbol eventSymbol:
+                                    ProcessType(eventSymbol.Type);
+                                    break;
+                            }
+                        }
+                    }
+                }
             }
         }
         
         private void ProcessType(ITypeSymbol type)
         {
+            if (type == null)
+                return;
+                
             // Handle different type kinds
             switch (type)
             {
@@ -104,10 +168,36 @@ namespace DomainBridge.SourceGenerators.Services
                     ProcessType(arrayType.ElementType);
                     break;
                     
-                case INamedTypeSymbol namedType:
-                    // Handle generic types
-                    if (namedType.IsGenericType)
+                case IPointerTypeSymbol pointerType:
+                    // Process the pointed-to type even though we can't bridge pointers
+                    ProcessType(pointerType.PointedAtType);
+                    break;
+                    
+                case IDynamicTypeSymbol:
+                    // Dynamic types are handled at runtime
+                    break;
+                    
+                case ITypeParameterSymbol typeParameter:
+                    // Process type parameter constraints
+                    foreach (var constraint in typeParameter.ConstraintTypes)
                     {
+                        ProcessType(constraint);
+                    }
+                    break;
+                    
+                case INamedTypeSymbol namedType:
+                    // Handle nullable value types
+                    if (namedType.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T)
+                    {
+                        foreach (var typeArg in namedType.TypeArguments)
+                        {
+                            ProcessType(typeArg);
+                        }
+                    }
+                    // Handle generic types
+                    else if (namedType.IsGenericType)
+                    {
+                        // Process all type arguments
                         foreach (var typeArg in namedType.TypeArguments)
                         {
                             ProcessType(typeArg);
@@ -122,6 +212,12 @@ namespace DomainBridge.SourceGenerators.Services
                     else
                     {
                         ProcessNamedType(namedType);
+                    }
+                    
+                    // Also process any nested types within this type
+                    foreach (var nestedType in namedType.GetTypeMembers())
+                    {
+                        ProcessNamedType(nestedType);
                     }
                     break;
             }

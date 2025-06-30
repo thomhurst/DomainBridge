@@ -1,0 +1,19 @@
+{
+  "id": "domainbridge-requirements",
+  "started": "2025-01-29T20:51:00Z",
+  "lastUpdated": "2025-01-29T21:00:00Z",
+  "status": "active",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
+  },
+  "contextFiles": [
+    "/src/DomainBridge.SourceGenerators/DomainBridgePatternGenerator.cs",
+    "/src/DomainBridge.SourceGenerators/Services/TypeCollector.cs",
+    "/src/DomainBridge.SourceGenerators/Services/BridgeTypeResolver.cs",
+    "/src/DomainBridge.SourceGenerators/Services/TypeAnalyzer.cs",
+    "/src/DomainBridge.SourceGenerators/Services/EnhancedBridgeClassGenerator.cs"
+  ],
+  "relatedFeatures": []
+}

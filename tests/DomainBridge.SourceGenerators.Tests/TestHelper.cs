@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace DomainBridge.SourceGenerators.Tests;
 
@@ -63,5 +64,29 @@ public static class TestHelper
             }
         }
         return files;
+    }
+    
+    public static Task<Compilation> CreateCompilation(string source)
+    {
+        var syntaxTree = CSharpSyntaxTree.ParseText(source);
+        
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(DomainBridgeAttribute).Assembly.Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Runtime").Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("netstandard").Location),
+            MetadataReference.CreateFromFile(System.Reflection.Assembly.Load("System.Collections").Location),
+            MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location),
+        };
+
+        var compilation = CSharpCompilation.Create(
+            assemblyName: "Tests",
+            syntaxTrees: new[] { syntaxTree },
+            references: references,
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            
+        return Task.FromResult<Compilation>(compilation);
     }
 }

@@ -42,6 +42,8 @@ namespace DomainBridge.SourceGenerators.Models
         public bool IsIgnored { get; }
         public bool IsIndexer { get; }
         public List<ParameterModel> Parameters { get; }
+        public bool IsInterfaceMember { get; set; }
+        public ITypeSymbol? DeclaringInterface { get; set; }
 
         public PropertyModel(string name, ITypeSymbol type, bool hasGetter, bool hasSetter, bool isIgnored = false, bool isIndexer = false)
         {
@@ -64,6 +66,8 @@ namespace DomainBridge.SourceGenerators.Models
         [
         ];
         public bool IsIgnored { get; }
+        public bool IsInterfaceMember { get; set; }
+        public ITypeSymbol? DeclaringInterface { get; set; }
 
         public MethodModel(string name, ITypeSymbol returnType, IMethodSymbol symbol, bool isIgnored = false)
         {
@@ -95,6 +99,8 @@ namespace DomainBridge.SourceGenerators.Models
         public string Name { get; }
         public ITypeSymbol Type { get; }
         public bool IsIgnored { get; }
+        public bool IsInterfaceMember { get; set; }
+        public ITypeSymbol? DeclaringInterface { get; set; }
 
         public EventModel(string name, ITypeSymbol type, bool isIgnored = false)
         {

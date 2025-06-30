@@ -13,7 +13,9 @@ The core functionality relies on Roslyn source generators:
 - `DomainBridgePatternGenerator` analyzes types marked with `[DomainBridge]` attribute
 - Generates partial class implementations with all members from the target type
 - Creates proxy classes for nested return types automatically
+- Implements all interfaces from the target type
 - All generation happens at compile time (no runtime reflection)
+- Generated classes use `MarshalByRefObject` for cross-domain communication
 
 ### Project Structure
 ```
@@ -23,7 +25,10 @@ src/
 ├── DomainBridge.SourceGenerators/ # Compile-time code generation (netstandard2.0)
 └── DomainBridge.Pipeline/       # Build automation with ModularPipelines (net9.0)
 tests/
-└── DomainBridge.Tests/          # TUnit test framework
+├── DomainBridge.Tests/          # Integration tests using TUnit (net472)
+└── DomainBridge.SourceGenerators.Tests/ # Source generator tests (net9.0)
+samples/
+└── DomainBridge.Sample/         # Usage examples and patterns
 ```
 
 ### Key Technical Constraints
@@ -56,6 +61,12 @@ dotnet test --logger "console;verbosity=detailed"
 
 # Run specific test project
 dotnet test tests/DomainBridge.Tests/DomainBridge.Tests.csproj
+
+# Run specific test with filter
+dotnet test --filter "FullyQualifiedName~TestName"
+
+# Run tests with TUnit tree node filter
+dotnet test --treenode-filter /AssemblyName/Namespace/ClassName/MethodName
 ```
 
 ### Pipeline Operations
@@ -98,11 +109,13 @@ The project uses TUnit (v0.25.21) for testing:
 ## CI/CD Pipeline
 
 GitHub Actions workflow (`.github/workflows/dotnet.yml`):
+- Runs on Windows runners (required for .NET Framework)
 - Triggers on push to main and PRs
 - Uses .NET 9.0.x for pipeline execution
 - Environment-based configuration (Development for PRs, Production for main)
 - Manual workflow dispatch option for package publishing
 - NuGet API key stored in `NUGET__APIKEY` secret
+- Working directory: `src/DomainBridge.Pipeline`
 
 ## Common Development Tasks
 
@@ -117,6 +130,12 @@ GitHub Actions workflow (`.github/workflows/dotnet.yml`):
 2. Use `Debugger.Launch()` in generator for interactive debugging
 3. Examine generated output in `obj/` directories
 4. Use `EmitCompilerGeneratedFiles` in test projects
+5. Enable detailed MSBuild output: `dotnet build -v detailed`
+6. Common diagnostic codes:
+   - DBG000: Generator not running (check analyzer reference)
+   - DBG001: Type not found (verify assembly reference)
+   - DBG002: Generated output has errors (check generated code)
+   - DBG003: Unexpected generator exception
 
 ### Publishing Updates
 1. Pipeline automatically generates version numbers
@@ -132,7 +151,26 @@ GitHub Actions workflow (`.github/workflows/dotnet.yml`):
 - Configuration through `DomainConfiguration` affects isolated domain setup
 - Shadow copying can be enabled for runtime assembly updates
 
-## Tooling Notes
+## Usage Examples
 
-### Filter Syntax
-- The filter syntax is: --treenode-filter /AssemblyName/Namespace/ClassName/MethodName
+For complete examples, see the `samples/DomainBridge.Sample/` directory which demonstrates:
+- Basic proxy usage with static Instance property
+- Custom domain configuration with assembly mappings
+- Interface implementation support
+- Nested return type handling
+- Domain cleanup patterns
+
+## Troubleshooting
+
+For detailed troubleshooting steps, see `DebugSourceGeneration.md`. Common issues:
+- Missing `partial` keyword on bridge class (generates CS0101)
+- Generator not running (check analyzer reference)
+- Generated code not visible (enable `EmitCompilerGeneratedFiles`)
+
+## Build Properties
+
+The solution uses `Directory.Build.props` for:
+- Deterministic builds in CI
+- Source Link for symbol packages
+- Package metadata and versioning
+- Automatic Microsoft.SourceLink.GitHub inclusion in CI

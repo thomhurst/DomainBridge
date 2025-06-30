@@ -11,11 +11,17 @@ namespace DomainBridge.SourceGenerators.Services
     {
         private const string DomainBridgeIgnoreAttribute = "DomainBridge.DomainBridgeIgnoreAttribute";
         private static readonly string[] SystemAssemblyPrefixes = { "System", "Microsoft", "Windows", "mscorlib", "netstandard" };
+        private readonly GeneratorExecutionContext? _context;
+        
+        public TypeFilter(GeneratorExecutionContext? context = null)
+        {
+            _context = context;
+        }
         
         /// <summary>
         /// Determines if a bridge should be generated for the given type
         /// </summary>
-        public bool ShouldGenerateBridge(ITypeSymbol type)
+        public bool ShouldGenerateBridge(ITypeSymbol type, Location? location = null)
         {
             // Only process named types (classes and interfaces)
             if (type is not INamedTypeSymbol namedType)
@@ -25,9 +31,15 @@ namespace DomainBridge.SourceGenerators.Services
             if (type.SpecialType != SpecialType.None)
                 return false;
                 
-            // Skip value types (structs, enums)
+            // Skip value types (structs, enums) - report diagnostic if context available
             if (type.IsValueType)
+            {
+                if (_context.HasValue && location != null && type.IsRefLikeType)
+                {
+                    _context.Value.ReportDiagnostic(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
+                }
                 return false;
+            }
                 
             // Skip static classes
             if (type.IsStatic)
@@ -37,13 +49,25 @@ namespace DomainBridge.SourceGenerators.Services
             if (type.IsAbstract || type.TypeKind == TypeKind.Interface)
                 return false;
                 
-            // Skip sealed classes that can't be proxied
+            // Skip sealed classes that can't be proxied - report diagnostic if context available
             if (type.IsSealed && !CanProxySealed(type))
+            {
+                if (_context.HasValue && location != null)
+                {
+                    _context.Value.ReportDiagnostic(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
+                }
                 return false;
+            }
                 
-            // Skip types already inheriting from MarshalByRefObject
+            // Skip types already inheriting from MarshalByRefObject - report diagnostic if context available
             if (InheritsFromMarshalByRefObject(type))
+            {
+                if (_context.HasValue && location != null)
+                {
+                    _context.Value.ReportDiagnostic(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
+                }
                 return false;
+            }
                 
             // Skip types with the ignore attribute
             if (HasIgnoreAttribute(type))

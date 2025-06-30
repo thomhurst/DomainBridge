@@ -34,7 +34,7 @@ namespace DomainBridge.SourceGenerators
 
                 var analyzer = new TypeAnalyzer();
                 var generator = new BridgeClassGenerator();
-                var typeFilter = new TypeFilter();
+                var typeFilter = new TypeFilter(context);
                 var typeCollector = new TypeCollector(typeFilter);
                 var explicitlyMarkedTypes = new List<INamedTypeSymbol>();
                 var partialClassesToGenerate = new List<(ClassDeclarationSyntax classDecl, INamedTypeSymbol targetType, AttributeConfiguration config)>();
@@ -55,6 +55,17 @@ namespace DomainBridge.SourceGenerators
                         
                         if (attribute == null) continue;
 
+                        // Check if the class is declared as partial
+                        if (!classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
+                        {
+                            context.ReportDiagnostic(
+                                Diagnostic.Create(
+                                    DiagnosticsHelper.MissingPartialKeyword,
+                                    classDeclaration.Identifier.GetLocation(),
+                                    classSymbol.Name));
+                            continue;
+                        }
+                        
                         // Get the target type from the attribute
                         if (attribute.ConstructorArguments.Length > 0)
                         {
@@ -68,18 +79,12 @@ namespace DomainBridge.SourceGenerators
                             else
                             {
                                 // Report diagnostic if target type is not found
-                                var diagnostic = Diagnostic.Create(
-                                    new DiagnosticDescriptor(
-                                        "DBG002",
-                                        "Invalid Target Type",
-                                        "The target type for {0} could not be resolved",
-                                        "DomainBridge",
-                                        DiagnosticSeverity.Error,
-                                        true),
-                                    classDeclaration.GetLocation(),
-                                    classSymbol.Name);
-                                
-                                context.ReportDiagnostic(diagnostic);
+                                var targetTypeName = attribute.ConstructorArguments[0].Value?.ToString() ?? "unknown";
+                                context.ReportDiagnostic(
+                                    Diagnostic.Create(
+                                        DiagnosticsHelper.TypeNotFound,
+                                        classDeclaration.GetLocation(),
+                                        targetTypeName));
                             }
                         }
                     }
