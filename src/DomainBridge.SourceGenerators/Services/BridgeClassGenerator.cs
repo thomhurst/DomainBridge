@@ -312,16 +312,24 @@ namespace DomainBridge.SourceGenerators.Services
         private bool IsComplexType(ITypeSymbol type)
         {
             if (type.SpecialType != SpecialType.None)
+            {
                 return false;
+            }
 
             if (type.TypeKind == TypeKind.Enum)
+            {
                 return false;
+            }
 
             if (type.ContainingAssembly?.Name.StartsWith("System") == true)
+            {
                 return false;
+            }
 
             if (type.TypeKind == TypeKind.Interface)
+            {
                 return false;
+            }
 
             return type is INamedTypeSymbol && type.TypeKind == TypeKind.Class;
         }
@@ -336,9 +344,18 @@ namespace DomainBridge.SourceGenerators.Services
 
         private string FormatDefaultValue(object? value)
         {
-            if (value == null) return "null";
-            if (value is string str) return FormatStringLiteral(str);
-            if (value is bool b) return b ? "true" : "false";
+            if (value == null)
+            {
+                return "null";
+            }
+            if (value is string str)
+            {
+                return FormatStringLiteral(str);
+            }
+            if (value is bool b)
+            {
+                return b ? "true" : "false";
+            }
             return value.ToString() ?? "null";
         }
 

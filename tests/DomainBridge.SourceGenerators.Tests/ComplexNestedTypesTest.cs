@@ -84,7 +84,7 @@ namespace TestNamespace
             var level1BridgeTree = generatedTrees.FirstOrDefault(t => t.FilePath.Contains("Level1Bridge"));
             await Assert.That(level1BridgeTree).IsNotNull();
             
-            var level1BridgeSource = level1BridgeTree.ToString();
+            var level1BridgeSource = level1BridgeTree!.ToString();
             await Assert.That(level1BridgeSource).Contains("public partial class Level1Bridge");
             await Assert.That(level1BridgeSource).Contains("public global::TestNamespace.Level2Bridge GetLevel2()");
             await Assert.That(level1BridgeSource).Contains("public global::System.Collections.Generic.List<global::TestNamespace.Level2Bridge> GetLevel2List()");
@@ -168,7 +168,7 @@ namespace TestNamespace
             var bridgeTree = outputCompilation.SyntaxTrees.FirstOrDefault(t => t.FilePath.Contains("ComplexTypeBridge"));
             await Assert.That(bridgeTree).IsNotNull();
 
-            var bridgeSource = bridgeTree.ToString();
+            var bridgeSource = bridgeTree!.ToString();
 
             // Verify class declaration includes all interfaces
             await Assert.That(bridgeSource).Contains("public partial class ComplexTypeBridge : global::System.MarshalByRefObject, global::System.IDisposable, global::TestNamespace.IDerived, global::TestNamespace.IExplicit");

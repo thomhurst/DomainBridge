@@ -14,8 +14,10 @@ namespace DomainBridge.SourceGenerators.Services
         public TypeModel AnalyzeType(INamedTypeSymbol typeSymbol)
         {
             if (typeSymbol == null)
+            {
                 throw new ArgumentNullException(nameof(typeSymbol));
-                
+            }
+
             var model = new TypeModel(typeSymbol);
 
             // Analyze interfaces
@@ -54,11 +56,15 @@ namespace DomainBridge.SourceGenerators.Services
                 foreach (var member in allProperties)
                 {
                     if (member.DeclaredAccessibility != Accessibility.Public)
+                    {
                         continue;
-                        
+                    }
+
                     // Skip static properties for now - we handle them separately
                     if (member.IsStatic)
+                    {
                         continue;
+                    }
 
                     var property = new PropertyModel(
                         member.Name,
@@ -134,13 +140,17 @@ namespace DomainBridge.SourceGenerators.Services
                 foreach (var member in allMethods)
                 {
                     if (member.DeclaredAccessibility != Accessibility.Public)
+                    {
                         continue;
-                        
+                    }
+
                     // Skip static methods, constructors, and special methods
                     if (member.IsStatic || 
                         member.MethodKind != MethodKind.Ordinary ||
                         member.IsGenericMethod)
+                    {
                         continue;
+                    }
 
                     try
                     {
@@ -213,7 +223,9 @@ namespace DomainBridge.SourceGenerators.Services
             foreach (var member in typeSymbol.GetMembers().OfType<IEventSymbol>())
             {
                 if (member.DeclaredAccessibility != Accessibility.Public || member.IsStatic)
+                {
                     continue;
+                }
 
                 var evt = new EventModel(
                     member.Name,
@@ -280,7 +292,9 @@ namespace DomainBridge.SourceGenerators.Services
                 
                 // Stop at System.Object to avoid including object members
                 if (currentType?.SpecialType == SpecialType.System_Object)
+                {
                     break;
+                }
             }
             
             return properties.Values;
@@ -312,7 +326,9 @@ namespace DomainBridge.SourceGenerators.Services
                 
                 // Stop at System.Object to avoid including object members like ToString, GetHashCode, etc.
                 if (currentType?.SpecialType == SpecialType.System_Object)
+                {
                     break;
+                }
             }
             
             return methods.Values;

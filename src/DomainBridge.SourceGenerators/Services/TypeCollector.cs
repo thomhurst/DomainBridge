@@ -57,8 +57,10 @@ namespace DomainBridge.SourceGenerators.Services
             foreach (var member in type.GetMembers())
             {
                 if (member.DeclaredAccessibility != Accessibility.Public)
+                {
                     continue;
-                    
+                }
+
                 switch (member)
                 {
                     case IMethodSymbol method when method.MethodKind == MethodKind.Ordinary:
@@ -159,8 +161,10 @@ namespace DomainBridge.SourceGenerators.Services
         private void ProcessType(ITypeSymbol type)
         {
             if (type == null)
+            {
                 return;
-                
+            }
+
             // Handle different type kinds
             switch (type)
             {
@@ -227,8 +231,10 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Skip if already processed
             if (_collectedTypes.ContainsKey(type))
+            {
                 return;
-                
+            }
+
             // Check if this type needs a bridge
             if (_typeFilter.ShouldGenerateBridge(type))
             {

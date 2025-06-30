@@ -24,13 +24,17 @@ namespace DomainBridge.SourceGenerators
             try
             {
                 if (!(context.SyntaxReceiver is SyntaxReceiver receiver))
+                {
                     return;
+                }
 
                 var compilation = context.Compilation;
                 var domainBridgeAttribute = compilation.GetTypeByMetadataName("DomainBridge.DomainBridgeAttribute");
                 
                 if (domainBridgeAttribute == null)
+                {
                     return;
+                }
 
                 var analyzer = new TypeAnalyzer();
                 var generator = new BridgeClassGenerator();
@@ -47,13 +51,19 @@ namespace DomainBridge.SourceGenerators
                         var model = compilation.GetSemanticModel(classDeclaration.SyntaxTree);
                         var classSymbol = model.GetDeclaredSymbol(classDeclaration) as INamedTypeSymbol;
                         
-                        if (classSymbol == null) continue;
+                        if (classSymbol == null)
+                        {
+                            continue;
+                        }
 
                         // Check if class has [DomainBridge(typeof(...))] attribute
                         var attribute = classSymbol.GetAttributes()
                             .FirstOrDefault(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, domainBridgeAttribute));
                         
-                        if (attribute == null) continue;
+                        if (attribute == null)
+                        {
+                            continue;
+                        }
 
                         // Check if the class is declared as partial
                         if (!classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
@@ -120,8 +130,11 @@ namespace DomainBridge.SourceGenerators
                     {
                         var model = compilation.GetSemanticModel(classDecl.SyntaxTree);
                         var classSymbol = model.GetDeclaredSymbol(classDecl) as INamedTypeSymbol;
-                        if (classSymbol == null) continue;
-                        
+                        if (classSymbol == null)
+                        {
+                            continue;
+                        }
+
                         // Create bridge info for explicitly marked type using the actual class name and namespace
                         var bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
                             ? ""
@@ -155,20 +168,21 @@ namespace DomainBridge.SourceGenerators
                 // Then generate auto-discovered bridges
                 var autoDiscoveredBridges = allTypesNeedingBridges
                     .Where(kvp => !kvp.Value.IsExplicitlyMarked)
-                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    .ToDictionary(kvp => kvp.Key, kvp => kvp.Value,
+                        SymbolEqualityComparer.Default);
                     
                 if (autoDiscoveredBridges.Count > 0)
                 {
                     // Generate bridges for auto-discovered types
                     foreach (var kvp in autoDiscoveredBridges)
                     {
-                        var targetType = kvp.Key;
+                        var targetType = kvp.Key as INamedTypeSymbol;
                         var bridgeInfo = kvp.Value;
                         
                         try
                         {
                             // Auto-discovered types don't have configuration
-                            var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType, null, context);
+                            var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, targetType!, null, context);
                             context.AddSource(bridgeInfo.FileName, SourceText.From(generatedCode, Encoding.UTF8));
                         }
                         catch (Exception ex)
@@ -182,7 +196,7 @@ namespace DomainBridge.SourceGenerators
                                     DiagnosticSeverity.Error,
                                     true),
                                 Location.None,
-                                targetType.Name,
+                                targetType?.Name,
                                 ex.Message);
                             context.ReportDiagnostic(diagnostic);
                         }

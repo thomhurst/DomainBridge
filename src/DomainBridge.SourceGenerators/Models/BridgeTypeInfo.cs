@@ -22,8 +22,10 @@ namespace DomainBridge.SourceGenerators.Models
             string? explicitBridgeNamespace = null)
         {
             if (originalType == null)
+            {
                 throw new ArgumentNullException(nameof(originalType));
-                
+            }
+
             OriginalFullName = originalType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
             // Generate bridge namespace
@@ -47,7 +49,7 @@ namespace DomainBridge.SourceGenerators.Models
             // Use explicit bridge class name if provided, otherwise generate one
             if (!string.IsNullOrEmpty(explicitBridgeClassName))
             {
-                BridgeClassName = explicitBridgeClassName;
+                BridgeClassName = explicitBridgeClassName!;
             }
             else
             {
@@ -66,8 +68,14 @@ namespace DomainBridge.SourceGenerators.Models
         
         public bool Equals(BridgeTypeInfo? other)
         {
-            if (other is null) return false;
-            if (ReferenceEquals(this, other)) return true;
+            if (other is null)
+            {
+                return false;
+            }
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
             return OriginalFullName == other.OriginalFullName;
         }
         

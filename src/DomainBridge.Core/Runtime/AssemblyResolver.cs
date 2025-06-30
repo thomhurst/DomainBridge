@@ -25,8 +25,11 @@ namespace DomainBridge.Runtime
         /// </summary>
         public void AddSearchPaths(params string[] paths)
         {
-            if (paths == null) return;
-            
+            if (paths == null)
+            {
+                return;
+            }
+
             foreach (var path in paths.Where(p => !string.IsNullOrWhiteSpace(p)))
             {
                 var fullPath = Path.GetFullPath(path);

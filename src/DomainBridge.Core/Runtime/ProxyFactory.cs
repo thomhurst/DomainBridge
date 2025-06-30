@@ -67,8 +67,10 @@ namespace DomainBridge.Runtime
         public T CreateInstance<T>(Func<T> factory) where T : class
         {
             if (factory == null)
+            {
                 throw new ArgumentNullException(nameof(factory));
-                
+            }
+
             return factory();
         }
         

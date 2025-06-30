@@ -80,7 +80,9 @@ namespace DomainBridge.SourceGenerators.Services
                     .Where(i => i.Name != "IDisposable" || i.ContainingNamespace?.ToDisplayString() != "System")
                     .Select(i => _typeResolver.ResolveType(i)));
                 if (!string.IsNullOrEmpty(interfaceList))
+                {
                     classDeclaration += $", {interfaceList}";
+                }
             }
             
             builder.OpenBlock(classDeclaration);
@@ -364,10 +366,14 @@ namespace DomainBridge.SourceGenerators.Services
                     
                     // Ensure types are globally qualified (but not for built-in types)
                     if (!originalKeyType.StartsWith("global::") && !IsBuiltInType(originalKeyType))
+                    {
                         originalKeyType = $"global::{originalKeyType}";
+                    }
                     if (!originalValueType.StartsWith("global::") && !IsBuiltInType(originalValueType))
+                    {
                         originalValueType = $"global::{originalValueType}";
-                    
+                    }
+
                     builder.AppendLine($"    var result = new global::System.Collections.Generic.Dictionary<{originalKeyType}, {originalValueType}>();");
                     builder.AppendLine($"    foreach (var kvp in value)");
                     builder.AppendLine($"    {{");
@@ -892,8 +898,10 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Only generate for explicitly marked types that might have static Instance properties
             if (!bridgeInfo.IsExplicitlyMarked)
+            {
                 return;
-                
+            }
+
             // Check if the target type has a static Instance property
             var targetType = typeModel.Symbol;
             var staticInstanceProperty = targetType.GetMembers("Instance")
@@ -1012,8 +1020,10 @@ namespace DomainBridge.SourceGenerators.Services
         private BridgeTypeInfo GetBridgeInfo(ITypeSymbol type)
         {
             if (_typeResolver.TryGetBridgeInfo(type, out var info) && info != null)
+            {
                 return info;
-                
+            }
+
             throw new InvalidOperationException($"No bridge info found for type {type}");
         }
         
@@ -1198,9 +1208,18 @@ namespace DomainBridge.SourceGenerators.Services
         
         private string FormatDefaultValue(object? value)
         {
-            if (value == null) return "null";
-            if (value is string str) return $"@\"{str.Replace("\"", "\"\"")}\"";
-            if (value is bool b) return b ? "true" : "false";
+            if (value == null)
+            {
+                return "null";
+            }
+            if (value is string str)
+            {
+                return $"@\"{str.Replace("\"", "\"\"")}\"";
+            }
+            if (value is bool b)
+            {
+                return b ? "true" : "false";
+            }
             return value.ToString() ?? "null";
         }
         

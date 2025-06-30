@@ -59,9 +59,10 @@ namespace TestNamespace
             await Assert.That(diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)).IsEmpty();
 
             var bridgeTree = outputCompilation.SyntaxTrees.FirstOrDefault(t => t.FilePath.Contains("MultipleInterfacesBridge"));
+            
             await Assert.That(bridgeTree).IsNotNull();
 
-            var bridgeSource = bridgeTree.ToString();
+            var bridgeSource = bridgeTree!.ToString();
 
             // Verify explicit interface implementations
             await Assert.That(bridgeSource).Contains("void global::TestNamespace.IFirst.Method()");

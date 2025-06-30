@@ -25,12 +25,16 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Only process named types (classes and interfaces)
             if (type is not INamedTypeSymbol namedType)
+            {
                 return false;
-                
+            }
+
             // Skip special types
             if (type.SpecialType != SpecialType.None)
+            {
                 return false;
-                
+            }
+
             // Skip value types (structs, enums) - report diagnostic if context available
             if (type.IsValueType)
             {
@@ -43,12 +47,16 @@ namespace DomainBridge.SourceGenerators.Services
                 
             // Skip static classes
             if (type.IsStatic)
+            {
                 return false;
-                
+            }
+
             // Skip abstract classes and interfaces (can't be instantiated)
             if (type.IsAbstract || type.TypeKind == TypeKind.Interface)
+            {
                 return false;
-                
+            }
+
             // Skip sealed classes that can't be proxied - report diagnostic if context available
             if (type.IsSealed && !CanProxySealed(type))
             {
@@ -71,20 +79,28 @@ namespace DomainBridge.SourceGenerators.Services
                 
             // Skip types marked with [Serializable] - they can cross AppDomain boundaries directly
             if (IsSerializable(type))
+            {
                 return false;
-                
+            }
+
             // Skip types with the ignore attribute
             if (HasIgnoreAttribute(type))
+            {
                 return false;
-                
+            }
+
             // Skip system types unless explicitly configured
             if (IsSystemType(type))
+            {
                 return false;
-                
+            }
+
             // Skip generic type definitions (we'll handle constructed types)
             if (namedType.IsUnboundGenericType)
+            {
                 return false;
-                
+            }
+
             return true;
         }
         
@@ -101,7 +117,9 @@ namespace DomainBridge.SourceGenerators.Services
             while (baseType != null)
             {
                 if (baseType.ToDisplayString() == "System.MarshalByRefObject")
+                {
                     return true;
+                }
                 baseType = baseType.BaseType;
             }
             return false;
@@ -123,11 +141,14 @@ namespace DomainBridge.SourceGenerators.Services
         private bool IsSystemType(ITypeSymbol type)
         {
             var assemblyName = type.ContainingAssembly?.Name;
+            
             if (string.IsNullOrEmpty(assemblyName))
+            {
                 return false;
-                
+            }
+
             return SystemAssemblyPrefixes.Any(prefix => 
-                assemblyName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+                assemblyName!.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

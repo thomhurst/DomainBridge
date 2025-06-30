@@ -61,8 +61,10 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Only reference types can be wrapped
             if (!type.IsReferenceType)
+            {
                 return false;
-                
+            }
+
             return TryGetBridgeInfo(type, out _);
         }
         
@@ -70,8 +72,10 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Prevent infinite recursion
             if (!visitedTypes.Add(type))
+            {
                 return type.ToDisplayString(FullyQualifiedFormat);
-                
+            }
+
             // Handle nullable reference types (but not nullable value types like int?)
             if (type.NullableAnnotation == NullableAnnotation.Annotated && type is not ITypeParameterSymbol)
             {
@@ -88,12 +92,16 @@ namespace DomainBridge.SourceGenerators.Services
                 
             // Handle special cases
             if (type.SpecialType != SpecialType.None)
+            {
                 return type.ToDisplayString(FullyQualifiedFormat);
-                
+            }
+
             // Handle type parameters
             if (type is ITypeParameterSymbol)
+            {
                 return type.Name;
-                
+            }
+
             // Handle pointers
             if (type is IPointerTypeSymbol pointerType)
             {

@@ -26,11 +26,15 @@ namespace DomainBridge.Runtime
             where TInstance : class
         {
             if (instance == null)
+            {
                 throw new ArgumentNullException(nameof(instance));
-                
+            }
+
             if (factory == null)
+            {
                 throw new ArgumentNullException(nameof(factory));
-                
+            }
+
             // Try to get from cache without lock first (fast path)
             if (_cache.TryGetValue(instance, out var cached) && cached is TBridge bridge)
             {

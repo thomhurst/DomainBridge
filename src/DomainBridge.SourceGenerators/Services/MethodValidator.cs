@@ -119,20 +119,28 @@ namespace DomainBridge.SourceGenerators.Services
         {
             // Primitive types are fine
             if (type.SpecialType != SpecialType.None)
+            {
                 return true;
-                
+            }
+
             // String is fine
             if (type.SpecialType == SpecialType.System_String)
+            {
                 return true;
-                
+            }
+
             // MarshalByRefObject types are fine
             if (InheritsFromMarshalByRefObject(type))
+            {
                 return true;
-                
+            }
+
             // Types explicitly marked [Serializable] are fine
             if (HasSerializableAttribute(type))
+            {
                 return true;
-                
+            }
+
             // Everything else is potentially problematic
             return false;
         }
@@ -146,7 +154,9 @@ namespace DomainBridge.SourceGenerators.Services
             while (baseType != null)
             {
                 if (baseType.ToDisplayString() == "System.MarshalByRefObject")
+                {
                     return true;
+                }
                 baseType = baseType.BaseType;
             }
             return false;

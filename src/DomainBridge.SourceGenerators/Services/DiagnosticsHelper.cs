@@ -178,7 +178,9 @@ namespace DomainBridge.SourceGenerators.Services
             while (baseType != null)
             {
                 if (baseType.ToDisplayString() == "System.MarshalByRefObject")
+                {
                     return true;
+                }
                 baseType = baseType.BaseType;
             }
             return false;
