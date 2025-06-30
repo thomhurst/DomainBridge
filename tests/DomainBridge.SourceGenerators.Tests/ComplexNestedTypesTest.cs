@@ -170,8 +170,8 @@ namespace TestNamespace
 
             var bridgeSource = bridgeTree!.ToString();
 
-            // Verify class declaration includes all interfaces
-            await Assert.That(bridgeSource).Contains("public partial class ComplexTypeBridge : global::System.MarshalByRefObject, global::System.IDisposable, global::TestNamespace.IDerived, global::TestNamespace.IExplicit");
+            // Verify class declaration includes all interfaces (including base interfaces)
+            await Assert.That(bridgeSource).Contains("public partial class ComplexTypeBridge : global::System.MarshalByRefObject, global::System.IDisposable, global::TestNamespace.IDerived, global::TestNamespace.IBase, global::TestNamespace.IExplicit");
 
             // Verify all interface members are implemented
             // IBase members
@@ -262,7 +262,7 @@ namespace TestNamespace
             await Assert.That(container2Source).Contains("public global::Namespace2.CommonTypeBridge GetCommonType()");
 
             // Verify both CommonType bridges are generated in their respective namespaces
-            var commonTypeBridges = generatedTrees.Where(t => t.ToString().Contains("CommonTypeBridge")).ToList();
+            var commonTypeBridges = generatedTrees.Where(t => t.ToString().Contains("class CommonTypeBridge")).ToList();
             await Assert.That(commonTypeBridges.Count).IsEqualTo(2);
             
             await Assert.That(commonTypeBridges.Any(t => t.ToString().Contains("namespace Namespace1") && t.ToString().Contains("public sealed class CommonTypeBridge"))).IsTrue();

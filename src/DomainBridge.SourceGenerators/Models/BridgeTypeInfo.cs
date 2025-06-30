@@ -41,9 +41,8 @@ namespace DomainBridge.SourceGenerators.Models
             }
             else
             {
-                BridgeNamespace = string.IsNullOrEmpty(originalNamespace)
-                    ? "DomainBridge.Generated"
-                    : $"DomainBridge.Generated.{originalNamespace}";
+                // Keep auto-generated bridges in the original namespace
+                BridgeNamespace = originalNamespace;
             }
                 
             // Use explicit bridge class name if provided, otherwise generate one

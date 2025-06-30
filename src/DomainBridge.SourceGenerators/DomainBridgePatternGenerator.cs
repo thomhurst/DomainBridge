@@ -73,7 +73,8 @@ namespace DomainBridge.SourceGenerators
                                     DiagnosticsHelper.MissingPartialKeyword,
                                     classDeclaration.Identifier.GetLocation(),
                                     classSymbol.Name));
-                            continue;
+                            // Continue generating anyway - this will cause a compilation error
+                            // but provides a better developer experience
                         }
                         
                         // Get the target type from the attribute

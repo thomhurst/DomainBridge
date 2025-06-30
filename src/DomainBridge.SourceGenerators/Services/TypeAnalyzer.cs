@@ -90,6 +90,41 @@ namespace DomainBridge.SourceGenerators.Services
                     model.Properties.Add(property);
                 }
                 
+                // Add explicit interface implementation properties
+                foreach (var explicitImpl in explicitImplementations.OfType<IPropertySymbol>())
+                {
+                    if (explicitImpl.ExplicitInterfaceImplementations.Length > 0)
+                    {
+                        var interfaceProp = explicitImpl.ExplicitInterfaceImplementations[0];
+                        var property = new PropertyModel(
+                            interfaceProp.Name,
+                            interfaceProp.Type,
+                            interfaceProp.GetMethod != null,
+                            interfaceProp.SetMethod != null,
+                            false,
+                            interfaceProp.IsIndexer)
+                        {
+                            IsInterfaceMember = true,
+                            DeclaringInterface = interfaceProp.ContainingType
+                        };
+                        
+                        // If it's an indexer, collect parameters
+                        if (interfaceProp.IsIndexer)
+                        {
+                            foreach (var param in interfaceProp.Parameters)
+                            {
+                                property.Parameters.Add(new ParameterModel(
+                                    param.Name,
+                                    param.Type,
+                                    param.HasExplicitDefaultValue,
+                                    param.HasExplicitDefaultValue ? param.ExplicitDefaultValue : null));
+                            }
+                        }
+                        
+                        model.Properties.Add(property);
+                    }
+                }
+                
                 // Add interface properties that aren't already implemented
                 foreach (var interfaceProp in interfaceProperties)
                 {
@@ -184,23 +219,27 @@ namespace DomainBridge.SourceGenerators.Services
                     }
                 }
                 
-                // Add interface methods that aren't already implemented
-                foreach (var interfaceMethod in interfaceMethods)
+                // Add explicit interface implementations
+                var explicitMethodImpls = explicitImplementations.OfType<IMethodSymbol>()
+                    .Where(m => m.MethodKind == MethodKind.ExplicitInterfaceImplementation)
+                    .ToList();
+                    
+                foreach (var explicitImpl in explicitMethodImpls)
                 {
-                    var signature = GetMethodSignature(interfaceMethod);
-                    if (!model.Methods.Any(m => GetMethodSignature(m.Symbol) == signature))
+                    // Add ALL explicit interface implementations, not just the first one
+                    foreach (var interfaceMethod in explicitImpl.ExplicitInterfaceImplementations)
                     {
                         var method = new MethodModel(
                             interfaceMethod.Name,
                             interfaceMethod.ReturnType,
-                            interfaceMethod,
+                            explicitImpl,  // Use the actual implementation symbol
                             false)
                         {
                             IsInterfaceMember = true,
                             DeclaringInterface = interfaceMethod.ContainingType
                         };
                         
-                        foreach (var param in interfaceMethod.Parameters)
+                        foreach (var param in explicitImpl.Parameters)  // Use implementation's parameters
                         {
                             method.Parameters.Add(new ParameterModel(
                                 param.Name,
@@ -210,6 +249,48 @@ namespace DomainBridge.SourceGenerators.Services
                         }
                         
                         model.Methods.Add(method);
+                    }
+                }
+                
+                // Add interface methods that aren't already implemented
+                foreach (var interfaceMethod in interfaceMethods)
+                {
+                    var signature = GetMethodSignature(interfaceMethod);
+                    // Check if this specific interface method is already implemented (not just any method with same signature)
+                    var isExplicitlyImplemented = explicitImplementations.OfType<IMethodSymbol>()
+                        .Any(m => m.ExplicitInterfaceImplementations.Any(ei => SymbolEqualityComparer.Default.Equals(ei, interfaceMethod)));
+                    
+                    if (!isExplicitlyImplemented)
+                    {
+                        // Also check if it's implicitly implemented (public method with same signature)
+                        var isImplicitlyImplemented = allMethods.Any(m => 
+                            m.DeclaredAccessibility == Accessibility.Public && 
+                            GetMethodSignature(m) == signature);
+                        
+                        // Only add if not implemented at all
+                        if (!isImplicitlyImplemented)
+                        {
+                            var method = new MethodModel(
+                                interfaceMethod.Name,
+                                interfaceMethod.ReturnType,
+                                interfaceMethod,
+                                false)
+                            {
+                                IsInterfaceMember = true,
+                                DeclaringInterface = interfaceMethod.ContainingType
+                            };
+                            
+                            foreach (var param in interfaceMethod.Parameters)
+                            {
+                                method.Parameters.Add(new ParameterModel(
+                                    param.Name,
+                                    param.Type,
+                                    param.HasExplicitDefaultValue,
+                                    param.HasExplicitDefaultValue ? param.ExplicitDefaultValue : null));
+                            }
+                            
+                            model.Methods.Add(method);
+                        }
                     }
                 }
             }
@@ -233,6 +314,25 @@ namespace DomainBridge.SourceGenerators.Services
                     HasIgnoreAttribute(member));
 
                 model.Events.Add(evt);
+            }
+            
+            // Add explicit interface implementation events
+            foreach (var explicitImpl in explicitImplementations.OfType<IEventSymbol>())
+            {
+                if (explicitImpl.ExplicitInterfaceImplementations.Length > 0)
+                {
+                    var interfaceEvent = explicitImpl.ExplicitInterfaceImplementations[0];
+                    var evt = new EventModel(
+                        interfaceEvent.Name,
+                        interfaceEvent.Type,
+                        false)
+                    {
+                        IsInterfaceMember = true,
+                        DeclaringInterface = interfaceEvent.ContainingType
+                    };
+                    
+                    model.Events.Add(evt);
+                }
             }
             
             // Add interface events that aren't already implemented
@@ -282,9 +382,11 @@ namespace DomainBridge.SourceGenerators.Services
                 foreach (var member in currentType.GetMembers().OfType<IPropertySymbol>())
                 {
                     // Only include public properties that we haven't seen yet
-                    if (member.DeclaredAccessibility == Accessibility.Public && !properties.ContainsKey(member.Name))
+                    // Use signature for indexers to handle multiple indexers with different parameters
+                    var key = GetPropertySignature(member);
+                    if (member.DeclaredAccessibility == Accessibility.Public && !properties.ContainsKey(key))
                     {
-                        properties[member.Name] = member;
+                        properties[key] = member;
                     }
                 }
                 

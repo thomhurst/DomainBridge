@@ -16,13 +16,13 @@ namespace DomainBridge.SourceGenerators.Services
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
             
         private static readonly SymbolDisplayFormat FullyQualifiedFormatWithoutGlobal = new SymbolDisplayFormat(
             typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
             globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
             genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
         
         public BridgeTypeResolver(IReadOnlyDictionary<INamedTypeSymbol, BridgeTypeInfo> bridgeTypeMap)
         {
@@ -76,19 +76,9 @@ namespace DomainBridge.SourceGenerators.Services
                 return type.ToDisplayString(FullyQualifiedFormat);
             }
 
-            // Handle nullable reference types (but not nullable value types like int?)
-            if (type.NullableAnnotation == NullableAnnotation.Annotated && type is not ITypeParameterSymbol)
-            {
-                // Check if this is already a nullable value type (e.g., int?, Nullable<int>)
-                if (type.OriginalDefinition?.SpecialType == SpecialType.System_Nullable_T)
-                {
-                    // It's already nullable, don't add another ?
-                    return type.ToDisplayString(FullyQualifiedFormat);
-                }
-                
-                var underlyingType = type.WithNullableAnnotation(NullableAnnotation.None);
-                return ResolveTypeInternal(underlyingType, visitedTypes) + "?";
-            }
+            // Skip nullable reference type annotations since we're targeting .NET Framework 4.7.2
+            // which doesn't support nullable reference types
+            // Note: This still allows nullable value types like int? to work correctly
                 
             // Handle special cases
             if (type.SpecialType != SpecialType.None)

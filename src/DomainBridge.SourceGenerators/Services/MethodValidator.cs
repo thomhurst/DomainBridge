@@ -20,6 +20,14 @@ namespace DomainBridge.SourceGenerators.Services
         };
 
         /// <summary>
+        /// Validates a property type for AppDomain bridging compatibility
+        /// </summary>
+        public IEnumerable<Diagnostic> ValidatePropertyType(ITypeSymbol propertyType, Location location, string context)
+        {
+            return ValidateTypeForAppDomainMarshaling(propertyType, location, context);
+        }
+        
+        /// <summary>
         /// Validates a method for AppDomain bridging compatibility
         /// </summary>
         public IEnumerable<Diagnostic> ValidateMethod(MethodModel method, IMethodSymbol methodSymbol, Location location)
@@ -58,10 +66,18 @@ namespace DomainBridge.SourceGenerators.Services
                 diagnostics.Add(CreateSpanMemoryError(location, context, type.ToDisplayString()));
             }
             
-            // Recursively check generic type arguments
-            if (type is INamedTypeSymbol namedType && namedType.IsGenericType)
+            // Check for sealed types that need bridging
+            if (type is INamedTypeSymbol namedType && namedType.IsSealed && 
+                !type.IsValueType && type.SpecialType == SpecialType.None &&
+                !InheritsFromMarshalByRefObject(type) && !HasSerializableAttribute(type))
             {
-                foreach (var typeArg in namedType.TypeArguments)
+                diagnostics.Add(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
+            }
+            
+            // Recursively check generic type arguments
+            if (type is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.IsGenericType)
+            {
+                foreach (var typeArg in namedTypeSymbol.TypeArguments)
                 {
                     diagnostics.AddRange(ValidateTypeForAppDomainMarshaling(typeArg, location, 
                         $"{context} (generic argument {typeArg.ToDisplayString()})"));
