@@ -57,15 +57,6 @@ namespace DomainBridge.SourceGenerators.Services
                 return false;
             }
 
-            // Skip sealed classes that can't be proxied - report diagnostic if context available
-            if (type.IsSealed && !CanProxySealed(type))
-            {
-                if (_context.HasValue && location != null)
-                {
-                    _context.Value.ReportDiagnostic(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
-                }
-                return false;
-            }
                 
             // Skip types already inheriting from MarshalByRefObject - report diagnostic if context available
             if (InheritsFromMarshalByRefObject(type))
@@ -106,9 +97,9 @@ namespace DomainBridge.SourceGenerators.Services
         
         private bool CanProxySealed(ITypeSymbol type)
         {
-            // In the future, we might support interface-based proxies for sealed types
-            // For now, we can't proxy sealed types
-            return false;
+            // We now support bridging sealed types by inheriting from MarshalByRefObject directly
+            // instead of inheriting from the target type
+            return true;
         }
         
         private bool InheritsFromMarshalByRefObject(ITypeSymbol type)

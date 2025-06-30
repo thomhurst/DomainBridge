@@ -66,13 +66,6 @@ namespace DomainBridge.SourceGenerators.Services
                 diagnostics.Add(CreateSpanMemoryError(location, context, type.ToDisplayString()));
             }
             
-            // Check for sealed types that need bridging
-            if (type is INamedTypeSymbol namedType && namedType.IsSealed && 
-                !type.IsValueType && type.SpecialType == SpecialType.None &&
-                !InheritsFromMarshalByRefObject(type) && !HasSerializableAttribute(type))
-            {
-                diagnostics.Add(DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(type, location));
-            }
             
             // Recursively check generic type arguments
             if (type is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.IsGenericType)

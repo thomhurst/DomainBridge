@@ -10,17 +10,6 @@ namespace DomainBridge.SourceGenerators.Services
     {
         // Diagnostic descriptors for various scenarios
         
-        /// <summary>
-        /// DBG200: Type cannot be bridged - sealed class
-        /// </summary>
-        public static readonly DiagnosticDescriptor SealedClassCannotBeBridged = new(
-            "DBG200",
-            "Sealed classes cannot be bridged",
-            "Type '{0}' is sealed and cannot be bridged across AppDomain boundaries. Consider using an interface or unsealed base class.",
-            "DomainBridge",
-            DiagnosticSeverity.Error,
-            true,
-            "Sealed classes cannot be proxied because the bridge needs to inherit from MarshalByRefObject. Consider extracting an interface or using an unsealed base class.");
             
         /// <summary>
         /// DBG201: Type cannot be bridged - value type
@@ -149,10 +138,6 @@ namespace DomainBridge.SourceGenerators.Services
                 return Diagnostic.Create(PointerTypeCannotBeBridged, location, type.ToDisplayString());
             }
             
-            if (type.IsSealed)
-            {
-                return Diagnostic.Create(SealedClassCannotBeBridged, location, type.ToDisplayString());
-            }
             
             if (InheritsFromMarshalByRefObject(type))
             {

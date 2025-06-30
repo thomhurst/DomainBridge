@@ -83,6 +83,13 @@ namespace DomainBridge.SourceGenerators
                             var targetTypeValue = attribute.ConstructorArguments[0].Value;
                             if (targetTypeValue is INamedTypeSymbol targetType)
                             {
+                                // Validate that the target type can be bridged
+                                if (targetType.IsValueType)
+                                {
+                                    context.ReportDiagnostic(
+                                        DiagnosticsHelper.CreateUnbridgeableTypeDiagnostic(targetType, classDeclaration.GetLocation()));
+                                }
+                                
                                 explicitlyMarkedTypes.Add(targetType);
                                 var config = ExtractAttributeConfiguration(attribute);
                                 partialClassesToGenerate.Add((classDeclaration, targetType, config));

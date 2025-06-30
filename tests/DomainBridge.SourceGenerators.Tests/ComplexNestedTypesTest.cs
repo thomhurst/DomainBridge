@@ -278,8 +278,8 @@ using System;
 
 namespace TestNamespace
 {
-    // Sealed class - cannot be bridged
-    public sealed class SealedType
+    // Value type - cannot be bridged
+    public struct ValueType
     {
         public string Name { get; set; }
     }
@@ -293,13 +293,17 @@ namespace TestNamespace
     // Class that references unbridgeable types
     public class ProblematicType
     {
-        public SealedType GetSealed() => new SealedType();
+        public ValueType GetValue() => new ValueType();
         public unsafe int* GetPointer() => null;
         public Span<int> GetSpan() => Span<int>.Empty;
     }
 
     [DomainBridge(typeof(ProblematicType))]
     public partial class ProblematicTypeBridge { }
+    
+    // Try to bridge a value type directly - this should generate a diagnostic
+    [DomainBridge(typeof(ValueType))]
+    public partial class ValueTypeBridge { }
 }
 ";
 
@@ -315,8 +319,8 @@ namespace TestNamespace
             // Should have diagnostic for Span<T> return type
             await Assert.That(errorDiagnostics.Any(d => d.Id == "DBG100" && d.GetMessage().Contains("Span"))).IsTrue();
             
-            // Should have diagnostic for sealed type
-            await Assert.That(errorDiagnostics.Any(d => d.Id == "DBG200" && d.GetMessage().Contains("SealedType"))).IsTrue();
+            // Should have diagnostic for value type (structs cannot be bridged)
+            await Assert.That(errorDiagnostics.Any(d => d.Id == "DBG201" && d.GetMessage().Contains("ValueType"))).IsTrue();
         }
 
         [Test]
