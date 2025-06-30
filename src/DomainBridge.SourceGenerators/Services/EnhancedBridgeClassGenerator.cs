@@ -111,6 +111,7 @@ namespace DomainBridge.SourceGenerators.Services
             GenerateConstructors(builder, bridgeInfo, typeModel, config);
             GenerateCreateMethods(builder, bridgeInfo, typeModel);
             GenerateStaticInstanceProperty(builder, bridgeInfo, typeModel);
+            GenerateWrappedInstanceAccessor(builder, typeModel);
             GenerateMembers(builder, typeModel);
             GenerateHelperMethods(builder);
             GenerateDisposalImplementation(builder, bridgeInfo, typeModel);
@@ -987,6 +988,33 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.CloseBlock();
                 builder.AppendLine();
             }
+        }
+        
+        private void GenerateWrappedInstanceAccessor(CodeBuilder builder, TypeModel typeModel)
+        {
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine($"/// Gets the wrapped instance of {typeModel.FullName}.");
+            builder.AppendLine("/// This is an advanced feature - use with caution as it bypasses the bridge's safety mechanisms.");
+            builder.AppendLine("/// </summary>");
+            builder.AppendLine("/// <returns>The wrapped instance as an object</returns>");
+            builder.OpenBlock("public object GetWrappedInstance()");
+            builder.AppendLine("CheckDisposed();");
+            builder.AppendLine("return _instance;");
+            builder.CloseBlock();
+            builder.AppendLine();
+            
+            // Also generate a typed version for convenience
+            builder.AppendLine("/// <summary>");
+            builder.AppendLine($"/// Gets the wrapped instance of {typeModel.FullName} with type casting.");
+            builder.AppendLine("/// This is an advanced feature - use with caution as it bypasses the bridge's safety mechanisms.");
+            builder.AppendLine("/// </summary>");
+            builder.AppendLine("/// <typeparam name=\"T\">The type to cast the wrapped instance to</typeparam>");
+            builder.AppendLine("/// <returns>The wrapped instance cast to type T</returns>");
+            builder.OpenBlock("public T GetWrappedInstance<T>()");
+            builder.AppendLine("CheckDisposed();");
+            builder.AppendLine("return (T)(object)_instance;");
+            builder.CloseBlock();
+            builder.AppendLine();
         }
         
         private void GenerateHelperMethods(CodeBuilder builder)

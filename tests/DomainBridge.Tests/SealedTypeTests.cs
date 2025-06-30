@@ -32,9 +32,31 @@ namespace DomainBridge.Tests
             var result = bridge.Process("test");
             await Assert.That(result).IsEqualTo("Processed: test");
         }
+        
+        [Test]
+        public async Task Can_Get_Wrapped_Instance_From_Bridge()
+        {
+            // Arrange
+            using var bridge = SealedServiceBridge.Create();
+            
+            // Act
+            var wrappedInstance = bridge.GetWrappedInstance();
+            var typedInstance = bridge.GetWrappedInstance<SealedService>();
+            
+            // Assert
+            await Assert.That(wrappedInstance).IsNotNull();
+            await Assert.That(typedInstance).IsNotNull();
+            await Assert.That(wrappedInstance.GetType().Name).IsEqualTo("SealedService");
+            
+            // Verify it's the actual wrapped instance by calling a method directly
+            typedInstance.SetValue("Direct access");
+            var result = bridge.GetValue();
+            await Assert.That(result).IsEqualTo("Direct access");
+        }
     }
     
     // Test sealed class
+    [Serializable]
     public sealed class SealedService
     {
         private string _value = "Hello from sealed service!";
