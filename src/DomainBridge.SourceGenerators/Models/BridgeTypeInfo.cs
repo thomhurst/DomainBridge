@@ -60,7 +60,23 @@ namespace DomainBridge.SourceGenerators.Models
             BridgeFullName = $"{BridgeNamespace}.{BridgeClassName}";
             
             // Generate unique filename based on full type name
-            FileName = $"{BridgeFullName.Replace(".", "_").Replace("<", "_").Replace(">", "_")}.g.cs";
+            // Replace invalid filename characters with underscores
+            var safeFileName = BridgeFullName
+                .Replace(".", "_")
+                .Replace("<", "_")
+                .Replace(">", "_")
+                .Replace(":", "_")
+                .Replace("/", "_")
+                .Replace("\\", "_")
+                .Replace("|", "_")
+                .Replace("?", "_")
+                .Replace("*", "_")
+                .Replace("\"", "_")
+                .Replace("[", "_")
+                .Replace("]", "_")
+                .Replace(",", "_")
+                .Replace(" ", "_");
+            FileName = $"{safeFileName}.g.cs";
             
             IsExplicitlyMarked = isExplicitlyMarked;
         }
