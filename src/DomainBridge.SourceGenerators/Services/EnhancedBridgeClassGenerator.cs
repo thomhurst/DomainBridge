@@ -42,7 +42,7 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine($"namespace {namespaceToUse}");
             builder.OpenBlock("");
             
-            GenerateBridgeClass(builder, bridgeInfo, typeModel, config);
+            GenerateBridgeClass(builder, bridgeInfo, typeModel, targetType, config);
             
             builder.CloseBlock();
             
@@ -64,13 +64,34 @@ namespace DomainBridge.SourceGenerators.Services
         private void GenerateBridgeClass(
             CodeBuilder builder, 
             BridgeTypeInfo bridgeInfo,
-            TypeModel typeModel, 
+            TypeModel typeModel,
+            INamedTypeSymbol targetType,
             AttributeConfiguration? config)
         {
-            // Generate class declaration with IDisposable
+            // Check if the target type already inherits from MarshalByRefObject
+            bool targetInheritsFromMarshalByRefObject = InheritsFromMarshalByRefObject(targetType);
+            
+            // Generate class declaration
             var classDeclaration = bridgeInfo.IsExplicitlyMarked
-                ? $"public partial class {bridgeInfo.BridgeClassName} : global::System.MarshalByRefObject, global::System.IDisposable"
-                : $"public sealed class {bridgeInfo.BridgeClassName} : global::System.MarshalByRefObject, global::System.IDisposable";
+                ? $"public partial class {bridgeInfo.BridgeClassName}"
+                : $"public sealed class {bridgeInfo.BridgeClassName}";
+            
+            // Inheritance strategy:
+            // 1. If target inherits from MarshalByRefObject and is not sealed, inherit from target
+            // 2. Otherwise, inherit from MarshalByRefObject directly
+            if (targetInheritsFromMarshalByRefObject && !targetType.IsSealed)
+            {
+                // Inherit from target type which already has MarshalByRefObject
+                classDeclaration += $" : {targetType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}";
+            }
+            else
+            {
+                // Inherit from MarshalByRefObject directly
+                classDeclaration += " : global::System.MarshalByRefObject";
+            }
+            
+            // Always add IDisposable
+            classDeclaration += ", global::System.IDisposable";
                 
             // Add interfaces (excluding IDisposable since we already added it)
             if (typeModel.Interfaces.Any())
@@ -1299,6 +1320,21 @@ namespace DomainBridge.SourceGenerators.Services
             };
             
             return keywords.Contains(identifier) ? $"@{identifier}" : identifier;
+        }
+        
+        private bool InheritsFromMarshalByRefObject(INamedTypeSymbol type)
+        {
+            var currentType = type.BaseType;
+            while (currentType != null)
+            {
+                if (currentType.Name == "MarshalByRefObject" && 
+                    currentType.ContainingNamespace?.ToDisplayString() == "System")
+                {
+                    return true;
+                }
+                currentType = currentType.BaseType;
+            }
+            return false;
         }
     }
 }
