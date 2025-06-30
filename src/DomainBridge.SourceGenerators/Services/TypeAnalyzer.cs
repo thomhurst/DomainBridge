@@ -442,7 +442,8 @@ namespace DomainBridge.SourceGenerators.Services
         private string GetMethodSignature(IMethodSymbol method)
         {
             var parameters = string.Join(",", method.Parameters.Select(p => p.Type.ToDisplayString()));
-            return $"{method.Name}({parameters})";
+            var returnType = method.ReturnType.ToDisplayString();
+            return $"{returnType} {method.Name}({parameters})";
         }
         
         /// <summary>
