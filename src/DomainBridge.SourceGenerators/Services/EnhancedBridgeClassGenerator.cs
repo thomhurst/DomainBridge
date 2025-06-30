@@ -539,10 +539,8 @@ namespace DomainBridge.SourceGenerators.Services
                 
                 if (isAsync)
                 {
-                    // Generate async wrapper method that calls synchronous wrapper via Task.Run
+                    // Generate async wrapper method that handles the async call directly
                     GenerateAsyncBridgeMethod(builder, method, taskResultType);
-                    // Also generate the internal synchronous wrapper method
-                    GenerateSyncWrapperMethod(builder, method, taskResultType);
                 }
                 else
                 {
@@ -556,7 +554,6 @@ namespace DomainBridge.SourceGenerators.Services
         {
             var returnType = _typeResolver.ResolveType(method.ReturnType);
             var parameters = GenerateParameterList(method.Parameters);
-            var syncMethodName = $"__DomainBridge_Sync_{method.Name}";
             
             builder.OpenBlock($"public async {returnType} {method.Name}({parameters})");
             builder.AppendLine("CheckDisposed();");
@@ -564,82 +561,29 @@ namespace DomainBridge.SourceGenerators.Services
             // Wrap in try-catch for exception handling
             builder.OpenBlock("try");
             
-            // Generate the Task.Run call to the sync wrapper
+            // Generate direct async call
             var args = GenerateArgumentList(method.Parameters);
-            var hasCancellationToken = method.Parameters.Any(p => p.Type.Name == "CancellationToken");
-            var cancellationTokenParam = hasCancellationToken ? method.Parameters.First(p => p.Type.Name == "CancellationToken").Name : null;
+            var methodCall = $"_instance.{method.Name}({args})";
             
-            if (taskResultType == null)
-            {
-                // Task (non-generic)
-                if (hasCancellationToken)
-                {
-                    builder.AppendLine($"await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}), {cancellationTokenParam});");
-                }
-                else
-                {
-                    builder.AppendLine($"await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}));");
-                }
-            }
-            else
-            {
-                // Task<T>
-                if (hasCancellationToken)
-                {
-                    builder.AppendLine($"return await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}), {cancellationTokenParam});");
-                }
-                else
-                {
-                    builder.AppendLine($"return await global::System.Threading.Tasks.Task.Run(() => {syncMethodName}({args}));");
-                }
-            }
-            
-            builder.CloseBlock(); // try
-            
-            // Add catch block for non-serializable exceptions
-            builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
-            builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
-            builder.AppendLine("throw new global::System.InvalidOperationException(");
-            builder.AppendLine($"    $\"Exception in method {method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
-            builder.AppendLine("    ex.InnerException);");
-            builder.CloseBlock(); // catch
-            
-            builder.CloseBlock();
-            builder.AppendLine();
-        }
-        
-        private void GenerateSyncWrapperMethod(CodeBuilder builder, MethodModel method, ITypeSymbol? taskResultType)
-        {
-            // This method is public so it can be called across AppDomain boundaries
-            var syncMethodName = $"__DomainBridge_Sync_{method.Name}";
-            var returnType = taskResultType != null ? _typeResolver.ResolveType(taskResultType) : "void";
-            var parameters = GenerateParameterList(method.Parameters);
-            
-            builder.OpenBlock($"public {returnType} {syncMethodName}({parameters})");
-            builder.AppendLine("CheckDisposed();");
-            
-            // Wrap in try-catch for exception handling
-            builder.OpenBlock("try");
-            
-            var args = GenerateArgumentList(method.Parameters);
-            // Handle ValueTask conversion
+            // Handle ValueTask conversion to Task if needed
             var isValueTask = method.ReturnType is INamedTypeSymbol namedType && 
                              (namedType.Name == "ValueTask" || 
                               (namedType.IsGenericType && namedType.ConstructedFrom?.Name == "ValueTask"));
             
-            var methodCall = isValueTask 
-                ? $"_instance.{method.Name}({args}).AsTask().ConfigureAwait(false).GetAwaiter().GetResult()"
-                : $"_instance.{method.Name}({args}).ConfigureAwait(false).GetAwaiter().GetResult()";
+            if (isValueTask)
+            {
+                methodCall = $"{methodCall}.AsTask()";
+            }
             
             if (taskResultType == null)
             {
-                // Task (non-generic) - just call and wait
-                builder.AppendLine($"{methodCall};");
+                // Task (non-generic) - just await
+                builder.AppendLine($"await {methodCall};");
             }
             else if (_typeResolver.NeedsWrapping(taskResultType))
             {
                 // Task<T> where T needs wrapping
-                builder.AppendLine($"var result = {methodCall};");
+                builder.AppendLine($"var result = await {methodCall};");
                 
                 // Handle collections specially
                 if (IsCollection(taskResultType, out var elementType) && _typeResolver.NeedsWrapping(elementType))
@@ -665,7 +609,7 @@ namespace DomainBridge.SourceGenerators.Services
             else
             {
                 // Task<T> where T doesn't need wrapping
-                builder.AppendLine($"return {methodCall};");
+                builder.AppendLine($"return await {methodCall};");
             }
             
             builder.CloseBlock(); // try
@@ -674,13 +618,14 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock("catch (global::System.Exception ex) when (!IsSerializableException(ex))");
             builder.AppendLine("// Wrap non-serializable exceptions in a serializable wrapper");
             builder.AppendLine("throw new global::System.InvalidOperationException(");
-            builder.AppendLine($"    $\"Exception in method {syncMethodName}: {{ex.GetType().Name}}: {{ex.Message}}\",");
+            builder.AppendLine($"    $\"Exception in method {method.Name}: {{ex.GetType().Name}}: {{ex.Message}}\",");
             builder.AppendLine("    ex.InnerException);");
             builder.CloseBlock(); // catch
             
             builder.CloseBlock();
             builder.AppendLine();
         }
+        
         
         private void GenerateNormalMethod(CodeBuilder builder, MethodModel method)
         {

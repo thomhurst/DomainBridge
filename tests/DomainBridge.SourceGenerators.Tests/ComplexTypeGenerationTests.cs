@@ -102,10 +102,10 @@ public class ComplexTypeGenerationTests
         await Assert.That(output).Contains("public async global::System.Threading.Tasks.Task<string> GetDataAsync(global::System.Threading.CancellationToken cancellationToken)");
         await Assert.That(output).Contains("public async global::System.Threading.Tasks.ValueTask<int> GetCountAsync()");
         
-        // Verify the async method implementations (using sync wrappers)
-        await Assert.That(output).Contains("__DomainBridge_Sync_DoWorkAsync()");
-        await Assert.That(output).Contains("__DomainBridge_Sync_GetDataAsync(cancellationToken)");
-        await Assert.That(output).Contains("__DomainBridge_Sync_GetCountAsync()");
+        // Verify the async method implementations (direct async calls)
+        await Assert.That(output).Contains("await _instance.DoWorkAsync()");
+        await Assert.That(output).Contains("await _instance.GetDataAsync(cancellationToken)");
+        await Assert.That(output).Contains("await _instance.GetCountAsync()");
     }
 
     [Test]
