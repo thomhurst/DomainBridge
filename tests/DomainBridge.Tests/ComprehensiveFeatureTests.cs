@@ -179,7 +179,7 @@ namespace DomainBridge.Tests
         {
             // Act
             using var bridge = AsyncTestServiceBridge.Create(() => new AsyncTestService());
-            using var documentBridge = await bridge.GetDocumentAsync("async-doc");
+            var documentBridge = await bridge.GetDocumentAsync("async-doc");
             
             // Assert
             await Assert.That(documentBridge).IsNotNull();
