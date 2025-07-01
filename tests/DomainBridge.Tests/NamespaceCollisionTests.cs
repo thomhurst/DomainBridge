@@ -17,9 +17,15 @@ namespace DomainBridge.Tests
             bool IsEnabled();
         }
 
-        // A class that implements both our local IEventSource and inherits from System.Diagnostics.Tracing.EventSource
-        public class CustomEventSource : System.Diagnostics.Tracing.EventSource, IEventSource
+        // A class that simulates namespace collision without inheriting from the problematic EventSource
+        // This demonstrates the same interface name collision scenario
+        [Serializable]
+        public class CustomEventSource : MarshalByRefObject, IEventSource, IDisposable
         {
+            // Simulate EventSource-like properties
+            public string Name => "CustomEventSource";
+            public Guid Guid => Guid.NewGuid();
+            
             void IEventSource.WriteEvent(int eventId, string message)
             {
                 // Explicit implementation for our local interface
@@ -32,10 +38,15 @@ namespace DomainBridge.Tests
                 return true;
             }
 
-            // EventSource methods
+            // Custom methods that would collide with EventSource
             public void LogInfo(string message)
             {
-                WriteEvent(1, message);
+                Console.WriteLine($"LogInfo: {message}");
+            }
+            
+            public void Dispose()
+            {
+                // Cleanup
             }
         }
 
