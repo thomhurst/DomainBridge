@@ -30,8 +30,10 @@ namespace DomainBridge.SourceGenerators
 
                 var compilation = context.Compilation;
                 var domainBridgeAttribute = compilation.GetTypeByMetadataName("DomainBridge.DomainBridgeAttribute");
+                var appDomainBridgeableAttribute = compilation.GetTypeByMetadataName("DomainBridge.AppDomainBridgeableAttribute");
                 
-                if (domainBridgeAttribute == null)
+                // Skip if no relevant attributes are found
+                if (domainBridgeAttribute == null && appDomainBridgeableAttribute == null)
                 {
                     return;
                 }
@@ -42,9 +44,81 @@ namespace DomainBridge.SourceGenerators
                 var typeCollector = new TypeCollector(typeFilter);
                 var explicitlyMarkedTypes = new List<(INamedTypeSymbol targetType, string bridgeClassName, string bridgeNamespace)>();
                 var partialClassesToGenerate = new List<(ClassDeclarationSyntax classDecl, INamedTypeSymbol targetType, AttributeConfiguration config)>();
+                var interfacesToGenerate = new List<(InterfaceDeclarationSyntax interfaceDecl, INamedTypeSymbol interfaceType)>();
 
-                // First pass: collect all explicitly marked types
-                foreach (var classDeclaration in receiver.CandidateClasses)
+                // First pass: collect interfaces marked with [AppDomainBridgeable]
+                if (appDomainBridgeableAttribute != null)
+                {
+                    foreach (var interfaceDeclaration in receiver.CandidateInterfaces)
+                    {
+                        try
+                        {
+                            var model = compilation.GetSemanticModel(interfaceDeclaration.SyntaxTree);
+                            var interfaceSymbol = model.GetDeclaredSymbol(interfaceDeclaration) as INamedTypeSymbol;
+                            
+                            if (interfaceSymbol == null)
+                            {
+                                continue;
+                            }
+
+                            // Check if interface has [AppDomainBridgeable] attribute
+                            var attribute = interfaceSymbol.GetAttributes()
+                                .FirstOrDefault(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, appDomainBridgeableAttribute));
+                            
+                            if (attribute == null)
+                            {
+                                continue;
+                            }
+
+                            // Check if the interface can be bridged (not blacklisted)
+                            if (TypeBlacklist.IsBlacklisted(interfaceSymbol))
+                            {
+                                context.ReportDiagnostic(
+                                    Diagnostic.Create(
+                                        DiagnosticsHelper.TypeBlacklisted,
+                                        interfaceDeclaration.Identifier.GetLocation(),
+                                        interfaceSymbol.Name,
+                                        TypeBlacklist.GetBlacklistReason(interfaceSymbol)));
+                                continue;
+                            }
+
+                            // Check generic constraints for unbridgeable types
+                            if (HasUnbridgeableGenericConstraints(interfaceSymbol))
+                            {
+                                context.ReportDiagnostic(
+                                    Diagnostic.Create(
+                                        DiagnosticsHelper.GenericConstraintUnbridgeable,
+                                        interfaceDeclaration.Identifier.GetLocation(),
+                                        interfaceSymbol.Name,
+                                        "contains unbridgeable constraint"));
+                                continue;
+                            }
+
+                            interfacesToGenerate.Add((interfaceDeclaration, interfaceSymbol));
+                        }
+                        catch (Exception ex)
+                        {
+                            var diagnostic = Diagnostic.Create(
+                                new DiagnosticDescriptor(
+                                    "DBG305",
+                                    "Interface Bridge Generation Failed",
+                                    $"Failed to process interface {{0}}: {{1}}",
+                                    "DomainBridge",
+                                    DiagnosticSeverity.Error,
+                                    true),
+                                interfaceDeclaration.GetLocation(),
+                                interfaceDeclaration.Identifier.Text,
+                                ex.Message);
+                            
+                            context.ReportDiagnostic(diagnostic);
+                        }
+                    }
+                }
+
+                // Second pass: collect classes with [DomainBridge] (legacy approach)  
+                if (domainBridgeAttribute != null)
+                {
+                    foreach (var classDeclaration in receiver.CandidateClasses)
                 {
                     try
                     {
@@ -64,6 +138,16 @@ namespace DomainBridge.SourceGenerators
                         {
                             continue;
                         }
+
+                        // Emit deprecation warning for legacy approach
+                        var targetTypeName = attribute.ConstructorArguments.Length > 0 
+                            ? attribute.ConstructorArguments[0].Value?.ToString() ?? "unknown"
+                            : "unknown";
+                        context.ReportDiagnostic(
+                            Diagnostic.Create(
+                                DiagnosticsHelper.LegacyAttributeUsage,
+                                classDeclaration.Identifier.GetLocation(),
+                                targetTypeName));
 
                         // Check if the class is declared as partial
                         if (!classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
@@ -103,12 +187,12 @@ namespace DomainBridge.SourceGenerators
                             else
                             {
                                 // Report diagnostic if target type is not found
-                                var targetTypeName = attribute.ConstructorArguments[0].Value?.ToString() ?? "unknown";
+                                var targetTypeNameForDiagnostic = attribute.ConstructorArguments[0].Value?.ToString() ?? "unknown";
                                 context.ReportDiagnostic(
                                     Diagnostic.Create(
                                         DiagnosticsHelper.TypeNotFound,
                                         classDeclaration.GetLocation(),
-                                        targetTypeName));
+                                        targetTypeNameForDiagnostic));
                             }
                         }
                     }
@@ -127,6 +211,7 @@ namespace DomainBridge.SourceGenerators
                             ex.ToString());
                         
                         context.ReportDiagnostic(diagnostic);
+                    }
                     }
                 }
                 
@@ -153,8 +238,17 @@ namespace DomainBridge.SourceGenerators
                         var bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
                             ? ""
                             : classSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                        
+                        // For generic classes, include the type parameters in the class name
+                        var bridgeClassName = classSymbol.Name;
+                        if (classSymbol.IsGenericType)
+                        {
+                            var typeParams = string.Join(", ", classSymbol.TypeParameters.Select(tp => tp.Name));
+                            bridgeClassName = $"{bridgeClassName}<{typeParams}>";
+                        }
+                        
                         var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true, 
-                            explicitBridgeClassName: classSymbol.Name,
+                            explicitBridgeClassName: bridgeClassName,
                             explicitBridgeNamespace: bridgeNamespace);
                         
                         // Generate using enhanced generator for async support
@@ -173,6 +267,46 @@ namespace DomainBridge.SourceGenerators
                                 true),
                             classDecl.GetLocation(),
                             classDecl.Identifier.Text,
+                            ex.Message);
+                        context.ReportDiagnostic(diagnostic);
+                    }
+                }
+                
+                // Generate bridges for interfaces marked with [AppDomainBridgeable]
+                foreach (var (interfaceDecl, interfaceType) in interfacesToGenerate)
+                {
+                    try
+                    {
+                        // Create bridge info for interface
+                        var interfaceNamespace = interfaceType.ContainingNamespace?.IsGlobalNamespace == true
+                            ? ""
+                            : interfaceType.ContainingNamespace?.ToDisplayString() ?? "";
+                        
+                        // Generate bridge class name: IUserService -> UserServiceBridge
+                        var bridgeClassName = interfaceType.Name.StartsWith("I") && interfaceType.Name.Length > 1 && char.IsUpper(interfaceType.Name[1])
+                            ? interfaceType.Name.Substring(1) + "Bridge"
+                            : interfaceType.Name + "Bridge";
+                        
+                        var bridgeInfo = new BridgeTypeInfo(interfaceType, isExplicitlyMarked: true, 
+                            explicitBridgeClassName: bridgeClassName,
+                            explicitBridgeNamespace: interfaceNamespace);
+                        
+                        // Generate bridge implementation for the interface
+                        var generatedCode = enhancedGenerator.GenerateBridgeClass(bridgeInfo, interfaceType, null, context);
+                        context.AddSource(bridgeInfo.FileName, SourceText.From(generatedCode, Encoding.UTF8));
+                    }
+                    catch (Exception ex)
+                    {
+                        var diagnostic = Diagnostic.Create(
+                            new DiagnosticDescriptor(
+                                "DBG306",
+                                "Interface Bridge Generation Failed",
+                                "Failed to generate bridge for interface {0}: {1}",
+                                "DomainBridge",
+                                DiagnosticSeverity.Error,
+                                true),
+                            interfaceDecl.GetLocation(),
+                            interfaceDecl.Identifier.Text,
                             ex.Message);
                         context.ReportDiagnostic(diagnostic);
                     }
@@ -234,6 +368,24 @@ namespace DomainBridge.SourceGenerators
             }
         }
 
+        /// <summary>
+        /// Checks if a type has generic constraints that reference unbridgeable types
+        /// </summary>
+        private bool HasUnbridgeableGenericConstraints(INamedTypeSymbol type)
+        {
+            foreach (var typeParameter in type.TypeParameters)
+            {
+                foreach (var constraint in typeParameter.ConstraintTypes)
+                {
+                    if (TypeBlacklist.IsBlacklisted(constraint))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         private AttributeConfiguration ExtractAttributeConfiguration(AttributeData attribute)
         {
             var config = new AttributeConfiguration();
@@ -281,14 +433,22 @@ namespace DomainBridge.SourceGenerators
         private class SyntaxReceiver : ISyntaxReceiver
         {
             public List<ClassDeclarationSyntax> CandidateClasses { get; } = new List<ClassDeclarationSyntax>();
+            public List<InterfaceDeclarationSyntax> CandidateInterfaces { get; } = new List<InterfaceDeclarationSyntax>();
 
             public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
             {
-                // Check for any class with attributes - let the compiler handle missing partial keyword
+                // Check for classes with attributes (old [DomainBridge] approach)
                 if (syntaxNode is ClassDeclarationSyntax classDeclaration &&
                     classDeclaration.AttributeLists.Count > 0)
                 {
                     CandidateClasses.Add(classDeclaration);
+                }
+                
+                // Check for interfaces with attributes (new [AppDomainBridgeable] approach)
+                if (syntaxNode is InterfaceDeclarationSyntax interfaceDeclaration &&
+                    interfaceDeclaration.AttributeLists.Count > 0)
+                {
+                    CandidateInterfaces.Add(interfaceDeclaration);
                 }
             }
         }

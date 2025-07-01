@@ -71,10 +71,45 @@ namespace DomainBridge.SourceGenerators.Services
             // Check if the target type already inherits from MarshalByRefObject
             bool targetInheritsFromMarshalByRefObject = InheritsFromMarshalByRefObject(targetType);
             
-            // Generate class declaration
+            // Generate class declaration with generic type parameters if needed
+            var className = bridgeInfo.BridgeClassName;
+            var genericConstraints = new List<string>();
+            
+            // If the target type is generic, collect constraints
+            if (targetType.IsGenericType)
+            {
+                // Collect constraints for each type parameter
+                foreach (var typeParam in targetType.TypeParameters)
+                {
+                    var constraints = new List<string>();
+                    
+                    // Check for special constraints
+                    if (typeParam.HasReferenceTypeConstraint)
+                        constraints.Add("class");
+                    else if (typeParam.HasValueTypeConstraint)
+                        constraints.Add("struct");
+                    
+                    // Add base type constraints
+                    foreach (var constraintType in typeParam.ConstraintTypes)
+                    {
+                        constraints.Add(_typeResolver.ResolveType(constraintType));
+                    }
+                    
+                    // Check for constructor constraint
+                    if (typeParam.HasConstructorConstraint && !typeParam.HasValueTypeConstraint)
+                        constraints.Add("new()");
+                    
+                    if (constraints.Any())
+                    {
+                        genericConstraints.Add($"where {typeParam.Name} : {string.Join(", ", constraints)}");
+                    }
+                }
+            }
+            
+            // Generate class declaration (className already contains generic parameters from BridgeTypeInfo)
             var classDeclaration = bridgeInfo.IsExplicitlyMarked
-                ? $"public partial class {bridgeInfo.BridgeClassName}"
-                : $"public sealed class {bridgeInfo.BridgeClassName}";
+                ? $"public partial class {className}"
+                : $"public sealed class {className}";
             
             // Inheritance strategy:
             // 1. If target inherits from MarshalByRefObject and is not sealed, inherit from target
@@ -103,6 +138,12 @@ namespace DomainBridge.SourceGenerators.Services
                 {
                     classDeclaration += $", {interfaceList}";
                 }
+            }
+            
+            // Add generic constraints to the class declaration
+            if (genericConstraints.Any())
+            {
+                classDeclaration += " " + string.Join(" ", genericConstraints);
             }
             
             builder.OpenBlock(classDeclaration);
@@ -134,10 +175,18 @@ namespace DomainBridge.SourceGenerators.Services
             AttributeConfiguration? config = null)
         {
             // Private constructor that takes instance and AppDomain
+            // Extract just the class name without generic parameters for the constructor
+            var constructorName = bridgeInfo.BridgeClassName;
+            var genericBracketIndex = constructorName.IndexOf('<');
+            if (genericBracketIndex > 0)
+            {
+                constructorName = constructorName.Substring(0, genericBracketIndex);
+            }
+            
             builder.AppendLine("/// <summary>");
             builder.AppendLine($"/// Internal constructor for wrapping an existing instance of {typeModel.FullName}");
             builder.AppendLine("/// </summary>");
-            builder.OpenBlock($"private {bridgeInfo.BridgeClassName}(dynamic instance, global::System.AppDomain appDomain)");
+            builder.OpenBlock($"private {constructorName}(dynamic instance, global::System.AppDomain appDomain)");
             builder.AppendLine("_instance = instance ?? throw new global::System.ArgumentNullException(nameof(instance));");
             builder.AppendLine("_appDomain = appDomain ?? throw new global::System.ArgumentNullException(nameof(appDomain));");
             builder.CloseBlock();
@@ -152,7 +201,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock($"internal static {bridgeInfo.BridgeClassName} GetOrCreate(dynamic instance)");
                 builder.AppendLine("if (instance == null) return null!;");
                 builder.AppendLine($"// For auto-generated bridges, we create in the current AppDomain");
-                builder.AppendLine($"return new {bridgeInfo.BridgeClassName}(instance, global::System.AppDomain.CurrentDomain);");
+                builder.AppendLine($"return new {constructorName}(instance, global::System.AppDomain.CurrentDomain);");
                 builder.CloseBlock();
                 builder.AppendLine();
             }
@@ -166,6 +215,13 @@ namespace DomainBridge.SourceGenerators.Services
             // Generate Create methods only for explicitly marked types
             if (bridgeInfo.IsExplicitlyMarked)
             {
+                // Extract just the class name without generic parameters for the constructor
+                var constructorName = bridgeInfo.BridgeClassName;
+                var genericBracketIndex = constructorName.IndexOf('<');
+                if (genericBracketIndex > 0)
+                {
+                    constructorName = constructorName.Substring(0, genericBracketIndex);
+                }
                 // Generate Create method with factory
                 builder.AppendLine("/// <summary>");
                 builder.AppendLine($"/// Creates a new isolated instance of {typeModel.Symbol.Name} in a separate AppDomain");
@@ -173,12 +229,54 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine("/// <param name=\"factory\">Factory function to create the target instance in the isolated AppDomain</param>");
                 builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
                 builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
-                builder.OpenBlock($"public static {bridgeInfo.BridgeClassName} Create(global::System.Func<{typeModel.FullName}> factory, global::DomainBridge.DomainConfiguration? config = null)");
+                // For generic types, we need to use the closed generic type in the factory signature
+                var factoryReturnType = typeModel.FullName;
+                if (typeModel.Symbol.IsGenericType && typeModel.Symbol.IsUnboundGenericType)
+                {
+                    // This is an open generic type like GenericService<>
+                    // We need to construct the closed type using the bridge's type parameters
+                    var typeNameWithoutArity = typeModel.Symbol.Name;
+                    var arityIndex = typeNameWithoutArity.IndexOf('`');
+                    if (arityIndex > 0)
+                    {
+                        typeNameWithoutArity = typeNameWithoutArity.Substring(0, arityIndex);
+                    }
+                    
+                    var typeParams = string.Join(", ", typeModel.Symbol.TypeParameters.Select(tp => tp.Name));
+                    var containingNamespace = typeModel.Symbol.ContainingNamespace?.IsGlobalNamespace == true
+                        ? ""
+                        : typeModel.Symbol.ContainingNamespace?.ToDisplayString() ?? "";
+                    
+                    // Handle nested types
+                    var containingTypes = new List<string>();
+                    var current = typeModel.Symbol.ContainingType;
+                    while (current != null)
+                    {
+                        containingTypes.Insert(0, current.Name);
+                        current = current.ContainingType;
+                    }
+                    
+                    if (containingTypes.Any())
+                    {
+                        var fullTypeName = string.Join(".", containingTypes) + "." + typeNameWithoutArity;
+                        factoryReturnType = string.IsNullOrEmpty(containingNamespace)
+                            ? $"{fullTypeName}<{typeParams}>"
+                            : $"{containingNamespace}.{fullTypeName}<{typeParams}>";
+                    }
+                    else
+                    {
+                        factoryReturnType = string.IsNullOrEmpty(containingNamespace)
+                            ? $"{typeNameWithoutArity}<{typeParams}>"
+                            : $"{containingNamespace}.{typeNameWithoutArity}<{typeParams}>";
+                    }
+                }
+                
+                builder.OpenBlock($"public static {bridgeInfo.BridgeClassName} Create(global::System.Func<{factoryReturnType}> factory, global::DomainBridge.DomainConfiguration? config = null)");
                 builder.AppendLine("if (factory == null) throw new global::System.ArgumentNullException(nameof(factory));");
                 builder.AppendLine();
                 builder.AppendLine("// Create configuration");
                 builder.AppendLine("config = config ?? new global::DomainBridge.DomainConfiguration();");
-                builder.AppendLine($"config.TargetAssembly = config.TargetAssembly ?? typeof({typeModel.FullName}).Assembly.FullName;");
+                builder.AppendLine($"config.TargetAssembly = config.TargetAssembly ?? typeof({factoryReturnType}).Assembly.FullName;");
                 builder.AppendLine();
                 builder.AppendLine("// Create AppDomain");
                 builder.AppendLine("var setup = new global::System.AppDomainSetup");
@@ -212,10 +310,10 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine("    }");
                 builder.AppendLine();
                 builder.AppendLine("    // Create the target instance in the isolated domain using the factory");
-                builder.AppendLine($"    var targetInstance = proxyFactory.CreateInstance<{typeModel.FullName}>(factory);");
+                builder.AppendLine($"    var targetInstance = proxyFactory.CreateInstance<{factoryReturnType}>(factory);");
                 builder.AppendLine();
                 builder.AppendLine($"    // Create and return the bridge");
-                builder.AppendLine($"    return new {bridgeInfo.BridgeClassName}(targetInstance, appDomain);");
+                builder.AppendLine($"    return new {constructorName}(targetInstance, appDomain);");
                 builder.AppendLine("}");
                 builder.AppendLine("catch");
                 builder.AppendLine("{");
@@ -238,7 +336,7 @@ namespace DomainBridge.SourceGenerators.Services
                     builder.AppendLine("/// <param name=\"config\">Optional AppDomain configuration</param>");
                     builder.AppendLine("/// <returns>A bridge instance that must be disposed when no longer needed</returns>");
                     builder.OpenBlock($"public static {bridgeInfo.BridgeClassName} Create(global::DomainBridge.DomainConfiguration? config = null)");
-                    builder.AppendLine($"return Create(() => new {typeModel.FullName}(), config);");
+                    builder.AppendLine($"return Create(() => new {factoryReturnType}(), config);");
                     builder.CloseBlock();
                     builder.AppendLine();
                 }
@@ -951,7 +1049,14 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock("get");
                 builder.AppendLine($"var targetInstance = global::{targetType.ToDisplayString()}.Instance;");
                 builder.AppendLine($"// Note: This creates a bridge in the current AppDomain, not an isolated one");
-                builder.AppendLine($"return new {bridgeInfo.BridgeClassName}(targetInstance, global::System.AppDomain.CurrentDomain);");
+                // Extract just the class name without generic parameters for the constructor
+                var ctorName = bridgeInfo.BridgeClassName;
+                var bracketIdx = ctorName.IndexOf('<');
+                if (bracketIdx > 0)
+                {
+                    ctorName = ctorName.Substring(0, bracketIdx);
+                }
+                builder.AppendLine($"return new {ctorName}(targetInstance, global::System.AppDomain.CurrentDomain);");
                 builder.CloseBlock();
                 builder.CloseBlock();
                 builder.AppendLine();
@@ -976,11 +1081,11 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine($"/// Gets the wrapped instance of {typeModel.FullName} with type casting.");
             builder.AppendLine("/// This is an advanced feature - use with caution as it bypasses the bridge's safety mechanisms.");
             builder.AppendLine("/// </summary>");
-            builder.AppendLine("/// <typeparam name=\"T\">The type to cast the wrapped instance to</typeparam>");
-            builder.AppendLine("/// <returns>The wrapped instance cast to type T</returns>");
-            builder.OpenBlock("public T GetWrappedInstance<T>()");
+            builder.AppendLine("/// <typeparam name=\"TResult\">The type to cast the wrapped instance to</typeparam>");
+            builder.AppendLine("/// <returns>The wrapped instance cast to type TResult</returns>");
+            builder.OpenBlock("public TResult GetWrappedInstance<TResult>()");
             builder.AppendLine("CheckDisposed();");
-            builder.AppendLine("return (T)(object)_instance;");
+            builder.AppendLine("return (TResult)(object)_instance;");
             builder.CloseBlock();
             builder.AppendLine();
         }
@@ -1030,6 +1135,11 @@ namespace DomainBridge.SourceGenerators.Services
         
         private void GenerateDisposalImplementation(CodeBuilder builder, BridgeTypeInfo bridgeInfo, TypeModel typeModel)
         {
+            // Check if the target type implements IDisposable
+            var targetImplementsIDisposable = typeModel.Interfaces.Any(i => 
+                i.Name == "IDisposable" && 
+                i.ContainingNamespace?.ToDisplayString() == "System");
+                
             // Check if the target type already has a Dispose() method
             var hasDisposeMethod = typeModel.Methods.Any(m => 
                 m.Name == "Dispose" && 
@@ -1055,6 +1165,21 @@ namespace DomainBridge.SourceGenerators.Services
             builder.OpenBlock("if (!_disposed)");
             builder.OpenBlock("if (disposing)");
             builder.AppendLine("// Dispose managed resources");
+            
+            // Forward disposal to wrapped instance if it implements IDisposable
+            if (targetImplementsIDisposable)
+            {
+                builder.AppendLine("// Forward Dispose to wrapped instance");
+                builder.OpenBlock("try");
+                builder.AppendLine("(_instance as global::System.IDisposable)?.Dispose();");
+                builder.CloseBlock();
+                builder.OpenBlock("catch (global::System.Exception ex)");
+                builder.AppendLine("// Log but don't throw from Dispose");
+                builder.AppendLine("global::System.Diagnostics.Debug.WriteLine($\"Failed to dispose wrapped instance: {ex.Message}\");");
+                builder.CloseBlock();
+                builder.AppendLine();
+            }
+            
             builder.OpenBlock("if (_appDomain != null && _appDomain != global::System.AppDomain.CurrentDomain)");
             builder.OpenBlock("try");
             builder.AppendLine("global::System.AppDomain.Unload(_appDomain);");

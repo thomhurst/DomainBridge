@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace DomainBridge.SourceGenerators.Models
@@ -54,14 +55,41 @@ namespace DomainBridge.SourceGenerators.Models
             {
                 // Handle nested types properly
                 var typeName = GetTypeNameWithContainingTypes(originalType);
-                BridgeClassName = $"{typeName}Bridge";
+                
+                // Handle generic types by including type parameters
+                if (originalType.IsGenericType)
+                {
+                    var typeParams = string.Join(", ", originalType.TypeParameters.Select(tp => tp.Name));
+                    BridgeClassName = $"{typeName}Bridge<{typeParams}>";
+                }
+                else
+                {
+                    BridgeClassName = $"{typeName}Bridge";
+                }
             }
             
             BridgeFullName = string.IsNullOrEmpty(BridgeNamespace) ? BridgeClassName : $"{BridgeNamespace}.{BridgeClassName}";
             
-            // Generate unique filename based on full type name
+            // Generate unique filename based on original type's fully qualified name
+            // This ensures uniqueness even when bridge names might be similar
+            // For generic types, use the generic type definition to avoid creating separate files
+            // for each instantiation (e.g., EventSource<string> and EventSource<int> should use same file)
+            string baseForFileName;
+            
+            if (originalType.IsGenericType && originalType.TypeArguments.Length > 0)
+            {
+                // For constructed generic types, use the generic type definition
+                var genericTypeDef = originalType.ConstructedFrom;
+                baseForFileName = genericTypeDef.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            }
+            else
+            {
+                baseForFileName = OriginalFullName;
+            }
+            
             // Replace invalid filename characters with underscores
-            var safeFileName = BridgeFullName
+            baseForFileName = baseForFileName
+                .Replace("global::", "")  // Remove global prefix
                 .Replace(".", "_")
                 .Replace("<", "_")
                 .Replace(">", "_")
@@ -76,7 +104,17 @@ namespace DomainBridge.SourceGenerators.Models
                 .Replace("]", "_")
                 .Replace(",", "_")
                 .Replace(" ", "_");
-            FileName = $"{safeFileName}.g.cs";
+            
+            // For generic types, append arity to ensure unique names
+            if (originalType.IsGenericType)
+            {
+                var arity = originalType.Arity;
+                FileName = $"{baseForFileName}_{arity}Bridge.g.cs";
+            }
+            else
+            {
+                FileName = $"{baseForFileName}Bridge.g.cs";
+            }
             
             IsExplicitlyMarked = isExplicitlyMarked;
         }

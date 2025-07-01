@@ -120,6 +120,54 @@ namespace DomainBridge.SourceGenerators.Services
             "All interface members must be implemented in the bridge class to maintain compatibility with the original type.");
 
         /// <summary>
+        /// DBG301: Type is blacklisted for bridging
+        /// </summary>
+        public static readonly DiagnosticDescriptor TypeBlacklisted = new(
+            "DBG301",
+            "Type is not suitable for AppDomain bridging",
+            "Type '{0}' cannot be bridged: {1}. Consider using interfaces to define cross-domain contracts instead.",
+            "DomainBridge",
+            DiagnosticSeverity.Warning,
+            true,
+            "Complex framework types like DbContext, Form, and others are not suitable for direct AppDomain bridging. Use interface-based contracts instead.");
+
+        /// <summary>
+        /// DBG302: Legacy attribute usage - deprecation warning
+        /// </summary>
+        public static readonly DiagnosticDescriptor LegacyAttributeUsage = new(
+            "DBG302",
+            "[DomainBridge] attribute is deprecated",
+            "The [DomainBridge(typeof({0}))] pattern is deprecated. Consider using [AppDomainBridgeable] on interfaces for better design.",
+            "DomainBridge",
+            DiagnosticSeverity.Info,
+            true,
+            "The interface-first approach with [AppDomainBridgeable] provides better separation of concerns and more reliable cross-domain communication.");
+
+        /// <summary>
+        /// DBG303: Generic constraint contains unbridgeable type
+        /// </summary>
+        public static readonly DiagnosticDescriptor GenericConstraintUnbridgeable = new(
+            "DBG303",
+            "Generic constraint contains unbridgeable type",
+            "Interface '{0}' has generic constraint '{1}' that references an unbridgeable type. Skipping bridge generation.",
+            "DomainBridge",
+            DiagnosticSeverity.Warning,
+            true,
+            "Generic constraints that reference complex framework types (like DbContext) cannot be safely bridged across AppDomain boundaries.");
+
+        /// <summary>
+        /// DBG304: Interface-first approach recommended
+        /// </summary>
+        public static readonly DiagnosticDescriptor InterfaceFirstRecommended = new(
+            "DBG304",
+            "Consider interface-first approach for complex types",
+            "Type '{0}' is complex and may cause issues. Consider defining an interface with [AppDomainBridgeable] for better cross-domain design.",
+            "DomainBridge",
+            DiagnosticSeverity.Info,
+            true,
+            "Complex types with many dependencies work better when abstracted behind interfaces for cross-domain communication.");
+
+        /// <summary>
         /// Creates a diagnostic for a type that cannot be bridged
         /// </summary>
         public static Diagnostic CreateUnbridgeableTypeDiagnostic(ITypeSymbol type, Location location)

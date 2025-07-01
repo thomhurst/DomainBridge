@@ -1,0 +1,23 @@
+{
+  "id": "source-gen-errors",
+  "started": "2025-07-01T10:14:26Z",
+  "lastUpdated": "2025-07-01T10:14:26Z",
+  "status": "active",
+  "phase": "complete",
+  "progress": {
+    "discovery": { "answered": 5, "total": 5 },
+    "detail": { "answered": 5, "total": 5 }
+  },
+  "contextFiles": [
+    "src/DomainBridge.SourceGenerators/DomainBridgePatternGenerator.cs",
+    "src/DomainBridge.SourceGenerators/Generators/EnhancedBridgeClassGenerator.cs",
+    "src/DomainBridge.SourceGenerators/Services/TypeBlacklist.cs",
+    "src/DomainBridge.SourceGenerators/Services/TypeAnalyzer.cs",
+    "tests/DomainBridge.Tests/InterfaceFirstTests.cs"
+  ],
+  "relatedFeatures": [
+    "Interface implementation forwarding",
+    "EventSource type handling",
+    "Namespace collision prevention"
+  ]
+}
