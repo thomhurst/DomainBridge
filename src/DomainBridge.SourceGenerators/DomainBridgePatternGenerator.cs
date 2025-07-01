@@ -235,16 +235,54 @@ namespace DomainBridge.SourceGenerators
                         }
 
                         // Create bridge info for explicitly marked type using the actual class name and namespace
-                        var bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
-                            ? ""
-                            : classSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                        // Handle nested classes properly - we need to include containing type info
+                        string bridgeNamespace;
+                        string bridgeClassName;
                         
-                        // For generic classes, include the type parameters in the class name
-                        var bridgeClassName = classSymbol.Name;
-                        if (classSymbol.IsGenericType)
+                        if (classSymbol.ContainingType != null)
                         {
-                            var typeParams = string.Join(", ", classSymbol.TypeParameters.Select(tp => tp.Name));
-                            bridgeClassName = $"{bridgeClassName}<{typeParams}>";
+                            // This is a nested class - we need to build the full nested structure
+                            var containingTypes = new List<INamedTypeSymbol>();
+                            var current = classSymbol.ContainingType;
+                            while (current != null)
+                            {
+                                containingTypes.Insert(0, current);
+                                current = current.ContainingType;
+                            }
+                            
+                            // The namespace is from the outermost containing type
+                            bridgeNamespace = containingTypes[0].ContainingNamespace?.IsGlobalNamespace == true
+                                ? ""
+                                : containingTypes[0].ContainingNamespace?.ToDisplayString() ?? "";
+                            
+                            // Build the nested class path
+                            var nestedPath = string.Join(".", containingTypes.Select(t => t.Name));
+                            
+                            // For generic classes, include the type parameters in the class name
+                            bridgeClassName = classSymbol.Name;
+                            if (classSymbol.IsGenericType)
+                            {
+                                var typeParams = string.Join(", ", classSymbol.TypeParameters.Select(tp => tp.Name));
+                                bridgeClassName = $"{bridgeClassName}<{typeParams}>";
+                            }
+                            
+                            // Combine the nested path with the bridge class name
+                            bridgeClassName = $"{nestedPath}.{bridgeClassName}";
+                        }
+                        else
+                        {
+                            // Regular top-level class
+                            bridgeNamespace = classSymbol.ContainingNamespace?.IsGlobalNamespace == true
+                                ? ""
+                                : classSymbol.ContainingNamespace?.ToDisplayString() ?? "";
+                            
+                            // For generic classes, include the type parameters in the class name
+                            bridgeClassName = classSymbol.Name;
+                            if (classSymbol.IsGenericType)
+                            {
+                                var typeParams = string.Join(", ", classSymbol.TypeParameters.Select(tp => tp.Name));
+                                bridgeClassName = $"{bridgeClassName}<{typeParams}>";
+                            }
                         }
                         
                         var bridgeInfo = new BridgeTypeInfo(targetType, isExplicitlyMarked: true, 

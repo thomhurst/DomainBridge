@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DomainBridge;
 using TUnit.Assertions;
 using TUnit.Core;
 
 namespace DomainBridge.Tests
 {
-    public class GenericTypeTests
+    public partial class GenericTypeTests
     {
         #region Test Types
         
         // Generic class with simple type parameter
+        [Serializable]
         public class GenericService<T>
         {
             public T Value { get; set; }
@@ -37,6 +39,7 @@ namespace DomainBridge.Tests
         }
         
         // Generic class with multiple type parameters
+        [Serializable]
         public class KeyValueService<TKey, TValue> where TKey : IComparable<TKey>
         {
             private readonly Dictionary<TKey, TValue> _data = new Dictionary<TKey, TValue>();
@@ -83,6 +86,7 @@ namespace DomainBridge.Tests
         }
         
         // Generic class implementing generic interface
+        [Serializable]
         public class Repository<T> : IRepository<T> where T : class
         {
             private readonly Dictionary<int, T> _entities = new Dictionary<int, T>();
@@ -105,6 +109,7 @@ namespace DomainBridge.Tests
         }
         
         // Test entity for repository
+        [Serializable]
         public class TestEntity
         {
             public string Name { get; set; }
@@ -124,53 +129,53 @@ namespace DomainBridge.Tests
         #endregion
         
         [Test]
-        public void GenericBridge_WithSimpleTypeParameter_Works()
+        public async Task GenericBridge_WithSimpleTypeParameter_Works()
         {
             using (var bridge = GenericServiceBridge<string>.Create(() => new GenericService<string>("Hello")))
             {
                 // Test getting value
                 var value = bridge.GetValue();
-                Assert.That(value).IsEqualTo("Hello");
+                await Assert.That(value).IsEqualTo("Hello");
                 
                 // Test setting value
                 bridge.SetValue("World");
-                Assert.That(bridge.GetValue()).IsEqualTo("World");
+                await Assert.That(bridge.GetValue()).IsEqualTo("World");
                 
                 // Test property
                 bridge.Value = "Property";
-                Assert.That(bridge.Value).IsEqualTo("Property");
+                await Assert.That(bridge.Value).IsEqualTo("Property");
             }
         }
         
         [Test]
-        public void GenericBridge_WithValueType_Works()
+        public async Task GenericBridge_WithValueType_Works()
         {
             using (var bridge = GenericServiceBridge<int>.Create(() => new GenericService<int>(42)))
             {
-                Assert.That(bridge.GetValue()).IsEqualTo(42);
+                await Assert.That(bridge.GetValue()).IsEqualTo(42);
                 
                 bridge.SetValue(100);
-                Assert.That(bridge.GetValue()).IsEqualTo(100);
+                await Assert.That(bridge.GetValue()).IsEqualTo(100);
             }
         }
         
         [Test]
-        public void GenericBridge_WithMultipleTypeParameters_Works()
+        public async Task GenericBridge_WithMultipleTypeParameters_Works()
         {
             using (var bridge = KeyValueServiceBridge<string, int>.Create(() => new KeyValueService<string, int>()))
             {
                 bridge.Add("one", 1);
                 bridge.Add("two", 2);
                 
-                Assert.That(bridge.Get("one")).IsEqualTo(1);
-                Assert.That(bridge.Get("two")).IsEqualTo(2);
-                Assert.That(bridge.Contains("one")).IsTrue();
-                Assert.That(bridge.Contains("three")).IsFalse();
+                await Assert.That(bridge.Get("one")).IsEqualTo(1);
+                await Assert.That(bridge.Get("two")).IsEqualTo(2);
+                await Assert.That(bridge.Contains("one")).IsTrue();
+                await Assert.That(bridge.Contains("three")).IsFalse();
             }
         }
         
         [Test]
-        public void GenericBridge_ImplementingGenericInterface_Works()
+        public async Task GenericBridge_ImplementingGenericInterface_Works()
         {
             using (var bridge = RepositoryBridge<TestEntity>.Create(() => new Repository<TestEntity>()))
             {
@@ -181,59 +186,59 @@ namespace DomainBridge.Tests
                 bridge.Add(entity2);
                 
                 var retrieved = bridge.GetById(1);
-                Assert.That(retrieved).IsNotNull();
-                Assert.That(retrieved.Name).IsEqualTo("Entity1");
+                await Assert.That(retrieved).IsNotNull();
+                await Assert.That(retrieved.Name).IsEqualTo("Entity1");
                 
                 var all = bridge.GetAll();
-                Assert.That(all).IsNotNull();
+                await Assert.That(all).IsNotNull();
                 
                 int count = 0;
                 foreach (var entity in all)
                 {
                     count++;
                 }
-                Assert.That(count).IsEqualTo(2);
+                await Assert.That(count).IsEqualTo(2);
             }
         }
         
         [Test]
-        public void GenericBridge_WithNestedGenerics_Works()
+        public async Task GenericBridge_WithNestedGenerics_Works()
         {
             using (var bridge = GenericServiceBridge<List<string>>.Create(() => new GenericService<List<string>>(new List<string> { "a", "b", "c" })))
             {
                 var list = bridge.GetValue();
-                Assert.That(list).IsNotNull();
-                Assert.That(list.Count).IsEqualTo(3);
-                Assert.That(list[0]).IsEqualTo("a");
+                await Assert.That(list).IsNotNull();
+                await Assert.That(list.Count).IsEqualTo(3);
+                await Assert.That(list[0]).IsEqualTo("a");
             }
         }
         
         [Test]
-        public void GenericBridge_MultipleInstances_AreIndependent()
+        public async Task GenericBridge_MultipleInstances_AreIndependent()
         {
             using (var bridge1 = GenericServiceBridge<string>.Create(() => new GenericService<string>("Instance1")))
             using (var bridge2 = GenericServiceBridge<string>.Create(() => new GenericService<string>("Instance2")))
             {
-                Assert.That(bridge1.GetValue()).IsEqualTo("Instance1");
-                Assert.That(bridge2.GetValue()).IsEqualTo("Instance2");
+                await Assert.That(bridge1.GetValue()).IsEqualTo("Instance1");
+                await Assert.That(bridge2.GetValue()).IsEqualTo("Instance2");
                 
                 bridge1.SetValue("Modified1");
-                Assert.That(bridge1.GetValue()).IsEqualTo("Modified1");
-                Assert.That(bridge2.GetValue()).IsEqualTo("Instance2");
+                await Assert.That(bridge1.GetValue()).IsEqualTo("Modified1");
+                await Assert.That(bridge2.GetValue()).IsEqualTo("Instance2");
             }
         }
         
         [Test]
-        public void GenericBridge_DifferentTypeArguments_CreateDifferentBridges()
+        public async Task GenericBridge_DifferentTypeArguments_CreateDifferentBridges()
         {
             using (var stringBridge = GenericServiceBridge<string>.Create(() => new GenericService<string>("Text")))
             using (var intBridge = GenericServiceBridge<int>.Create(() => new GenericService<int>(123)))
             {
-                Assert.That(stringBridge.GetValue()).IsEqualTo("Text");
-                Assert.That(intBridge.GetValue()).IsEqualTo(123);
+                await Assert.That(stringBridge.GetValue()).IsEqualTo("Text");
+                await Assert.That(intBridge.GetValue()).IsEqualTo(123);
                 
                 // Verify they are different types
-                Assert.That(stringBridge.GetType()).IsNotEqualTo(intBridge.GetType());
+                await Assert.That(stringBridge.GetType()).IsNotEqualTo(intBridge.GetType());
             }
         }
     }

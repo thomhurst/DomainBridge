@@ -42,7 +42,34 @@ namespace DomainBridge.SourceGenerators.Services
             builder.AppendLine($"namespace {namespaceToUse}");
             builder.OpenBlock("");
             
-            GenerateBridgeClass(builder, bridgeInfo, typeModel, targetType, config);
+            // Check if the bridge class name contains dots (indicating nested classes)
+            var classNameParts = bridgeInfo.BridgeClassName.Split('.');
+            if (classNameParts.Length > 1)
+            {
+                // Generate nested class structure
+                for (int i = 0; i < classNameParts.Length - 1; i++)
+                {
+                    builder.AppendLine($"public partial class {classNameParts[i]}");
+                    builder.OpenBlock("");
+                }
+                
+                // Generate the actual bridge class with the last part of the name
+                var actualBridgeClassName = classNameParts[classNameParts.Length - 1];
+                var modifiedBridgeInfo = new BridgeTypeInfo(targetType, bridgeInfo.IsExplicitlyMarked, 
+                    actualBridgeClassName, bridgeInfo.BridgeNamespace);
+                GenerateBridgeClass(builder, modifiedBridgeInfo, typeModel, targetType, config);
+                
+                // Close all the containing class blocks
+                for (int i = 0; i < classNameParts.Length - 1; i++)
+                {
+                    builder.CloseBlock();
+                }
+            }
+            else
+            {
+                // Regular non-nested class
+                GenerateBridgeClass(builder, bridgeInfo, typeModel, targetType, config);
+            }
             
             builder.CloseBlock();
             
@@ -201,7 +228,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.OpenBlock($"internal static {bridgeInfo.BridgeClassName} GetOrCreate(dynamic instance)");
                 builder.AppendLine("if (instance == null) return null!;");
                 builder.AppendLine($"// For auto-generated bridges, we create in the current AppDomain");
-                builder.AppendLine($"return new {constructorName}(instance, global::System.AppDomain.CurrentDomain);");
+                builder.AppendLine($"return new {bridgeInfo.BridgeClassName}(instance, global::System.AppDomain.CurrentDomain);");
                 builder.CloseBlock();
                 builder.AppendLine();
             }
@@ -313,7 +340,7 @@ namespace DomainBridge.SourceGenerators.Services
                 builder.AppendLine($"    var targetInstance = proxyFactory.CreateInstance<{factoryReturnType}>(factory);");
                 builder.AppendLine();
                 builder.AppendLine($"    // Create and return the bridge");
-                builder.AppendLine($"    return new {constructorName}(targetInstance, appDomain);");
+                builder.AppendLine($"    return new {bridgeInfo.BridgeClassName}(targetInstance, appDomain);");
                 builder.AppendLine("}");
                 builder.AppendLine("catch");
                 builder.AppendLine("{");

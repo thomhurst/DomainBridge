@@ -18,6 +18,13 @@ namespace DomainBridge.SourceGenerators.Services
                 throw new ArgumentNullException(nameof(typeSymbol));
             }
 
+            // If this is an unbound generic type (like List<>), use the original definition
+            // to get access to all members
+            if (typeSymbol.IsUnboundGenericType)
+            {
+                typeSymbol = typeSymbol.OriginalDefinition;
+            }
+
             var model = new TypeModel(typeSymbol);
 
             // Analyze interfaces
@@ -301,7 +308,15 @@ namespace DomainBridge.SourceGenerators.Services
 
             // Analyze events (including interface events)
             var interfaceEvents = interfaceMembers.OfType<IEventSymbol>();
-            foreach (var member in typeSymbol.GetMembers().OfType<IEventSymbol>())
+            var eventSource = typeSymbol;
+            
+            // If this is an unbound generic type, use OriginalDefinition to get members
+            if (typeSymbol.IsUnboundGenericType && typeSymbol.OriginalDefinition != null)
+            {
+                eventSource = typeSymbol.OriginalDefinition;
+            }
+            
+            foreach (var member in eventSource.GetMembers().OfType<IEventSymbol>())
             {
                 if (member.DeclaredAccessibility != Accessibility.Public || member.IsStatic)
                 {
@@ -376,6 +391,13 @@ namespace DomainBridge.SourceGenerators.Services
             var properties = new Dictionary<string, IPropertySymbol>();
             var currentType = typeSymbol;
             
+            // If this is an unbound generic type, we need to use OriginalDefinition
+            // to get the members (e.g., typeof(List<>) won't have members directly)
+            if (typeSymbol.IsUnboundGenericType && typeSymbol.OriginalDefinition != null)
+            {
+                currentType = typeSymbol.OriginalDefinition;
+            }
+            
             // Walk up the inheritance chain
             while (currentType != null)
             {
@@ -409,6 +431,13 @@ namespace DomainBridge.SourceGenerators.Services
         {
             var methods = new Dictionary<string, IMethodSymbol>();
             var currentType = typeSymbol;
+            
+            // If this is an unbound generic type, we need to use OriginalDefinition
+            // to get the members (e.g., typeof(List<>) won't have members directly)
+            if (typeSymbol.IsUnboundGenericType && typeSymbol.OriginalDefinition != null)
+            {
+                currentType = typeSymbol.OriginalDefinition;
+            }
             
             // Walk up the inheritance chain
             while (currentType != null)

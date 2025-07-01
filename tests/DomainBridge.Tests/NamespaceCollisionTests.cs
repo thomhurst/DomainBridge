@@ -8,7 +8,7 @@ namespace DomainBridge.Tests
     /// <summary>
     /// Tests to demonstrate and verify namespace collision issues
     /// </summary>
-    public class NamespaceCollisionTests
+    public partial class NamespaceCollisionTests
     {
         // Define a local interface with the same name as a system interface
         public interface IEventSource
@@ -86,7 +86,7 @@ namespace DomainBridge.Tests
             // This test verifies that the generated bridge correctly handles types
             // that implement interfaces with namespace collisions
             
-            using var bridge = NamespaceCollisionTests.CustomEventSourceBridge.Create(() => new CustomEventSource());
+            using var bridge = CustomEventSourceBridge.Create(() => new CustomEventSource());
             
             // The bridge should expose methods from both interfaces
             bridge.LogInfo("Test message");
@@ -106,7 +106,7 @@ namespace DomainBridge.Tests
         [Test]
         public async Task MultiInterfaceServiceBridge_ShouldHandleExplicitImplementations()
         {
-            using var bridge = NamespaceCollisionTests.MultiInterfaceServiceBridge.Create(() => new MultiInterfaceService());
+            using var bridge = MultiInterfaceServiceBridge.Create(() => new MultiInterfaceService());
             
             // Test public method
             bridge.Log("Public method test");

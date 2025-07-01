@@ -9,7 +9,7 @@ namespace DomainBridge.Tests
     /// <summary>
     /// Tests for EventSource bridge implementation
     /// </summary>
-    public class EventSourceTests
+    public partial class EventSourceTests
     {
         // Test EventSource that implements IEventSource from System.Diagnostics.Tracing
         [EventSource(Name = "TestEventSource")]
@@ -64,7 +64,7 @@ namespace DomainBridge.Tests
             // This test verifies that EventSource types can be bridged without compilation errors
             // The actual functionality may be limited due to EventSource's complex internal state
             
-            using var userBridge = EventSourceTests.EventSourceUserBridge.Create(() => new EventSourceUser());
+            using var userBridge = EventSourceUserBridge.Create(() => new EventSourceUser());
             
             // This should compile and execute without errors
             userBridge.UseEventSource();
@@ -89,7 +89,7 @@ namespace DomainBridge.Tests
             // This test documents the limitation that EventSource static instances
             // cannot be properly bridged across AppDomain boundaries
             
-            using var bridge = EventSourceTests.TestEventSourceBridge.Create(() => TestEventSource.Log);
+            using var bridge = TestEventSourceBridge.Create(() => TestEventSource.Log);
             
             // This would fail because EventSource.Log is a static instance that exists
             // in the original AppDomain and cannot be properly marshaled
